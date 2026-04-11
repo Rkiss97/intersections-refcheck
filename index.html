@@ -485,8 +485,11 @@ function looksLikeNewRef(chunk) {
   // Reject chunks starting with a single initial like "K.," or "B. " — continuation of author list
   // Real references start with multi-letter surnames (e.g. "Kovács,"), not lone initials
   if (/^[A-Z\u00C0-\u024F][.,]/.test(chunk)) return false;
-  // Must NOT start with common non-author words
-  if (/^(In|The|A|An|And|But|Or|For|With|From|This|That|These|Those|Trans|Press|pp)\b/i.test(chunk)) return false;
+  // Must NOT start with common non-author words.
+  // Use a Unicode-aware boundary (negative lookahead) instead of \b — JavaScript's
+  // \b only treats ASCII letters as word chars, so "Açıkalın" would match "^A\b"
+  // because "ç" is not a \w char and a boundary exists between "A" and "ç".
+  if (/^(In|The|A|An|And|But|Or|For|With|From|This|That|These|Those|Trans|Press|pp)(?![A-Za-z\u00C0-\u024F])/i.test(chunk)) return false;
   // Find the first (Year) in the chunk — either (2001) or . 2001 or similar
   const yearMatch = chunk.match(/[\(\.]\s*\d{4}[a-z]?\)?/);
   if (!yearMatch) return false;
@@ -695,7 +698,7 @@ function looksLikeNewEntry(text) {
     // Reject "Journal Name, Volume(Issue), Pages" patterns — e.g. "Scandinavian Journal of History, 49(5), 605–628"
     if (/\d+\s*\(\d+\)\s*[,:]\s*\d/.test(text.substring(0, 80))) return false;
     // Reject publisher names — these are endings of references, not starts of new ones
-    if (/^(Springer|Routledge|Palgrave|Waxmann|Elsevier|Wiley|Sage|Campus|Beltz|Suhrkamp|transcript|Nomos|Pearson|Jossey|Emerald|Bristol|Oxford|Cambridge|Harvard|Princeton|Stanford|MIT)\b/i.test(text)) return false;
+    if (/^(Springer|Routledge|Palgrave|Waxmann|Elsevier|Wiley|Sage|Campus|Beltz|Suhrkamp|transcript|Nomos|Pearson|Jossey|Emerald|Bristol|Oxford|Cambridge|Harvard|Princeton|Stanford|MIT)(?![A-Za-z\u00C0-\u024F])/i.test(text)) return false;
     // Must have a year or "n.d." within first 300 chars
     if (/\b(19|20)\d{2}\b/.test(text.substring(0, 300))) return true;
     if (/\bn\.?\s?d\.?\b/i.test(text.substring(0, 300))) return true;
