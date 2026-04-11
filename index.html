@@ -1,0 +1,3138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Reference Checker / Intersections</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --cream:#f0ece4;
+  --cream-light:#f7f4ee;
+  --cream-dark:#e1ddd3;
+  --wine:#6b0f1a;
+  --wine-deep:#4a0a12;
+  --wine-light:#8c3040;
+  --wine-faint:rgba(107,15,26,0.06);
+  --wine-border:rgba(107,15,26,0.12);
+  --brown:#7a6555;
+  --brown-light:#a09080;
+  --brown-faint:rgba(122,101,85,0.08);
+  --ink:#2c2420;
+  --ok:#3a7040;
+  --ok-bg:#eef5ea;
+  --ok-border:#b5d4a8;
+  --warn:#8a6510;
+  --warn-bg:#f5efd8;
+  --warn-border:#d4c48a;
+  --err:#982020;
+  --err-bg:#f5e0e0;
+  --err-border:#d4a0a0;
+  --radius:6px;
+  --shadow:0 1px 4px rgba(60,40,20,0.07);
+}
+
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  font-weight:400;
+  font-size:15px;
+  color:var(--ink);
+  background:var(--cream);
+  line-height:1.6;
+  min-height:100vh;
+}
+
+/* Header */
+.header{
+  background:var(--cream-dark);
+  border-bottom:2px solid var(--wine);
+  padding:0 48px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  height:80px;
+  position:sticky;
+  top:0;
+  z-index:100;
+}
+
+.header-left{
+  display:flex;
+  align-items:center;
+  gap:24px;
+}
+
+.header-left img{
+  height:56px;
+  width:auto;
+}
+
+.header-left .sep{
+  width:1px;
+  height:36px;
+  background:var(--wine-border);
+}
+
+.header-left .title{
+  font-size:17px;
+  font-weight:300;
+  color:var(--wine);
+  letter-spacing:0.3px;
+}
+
+.header-right{display:flex;gap:8px;align-items:center;}
+.header-right .info{font-size:12px;color:var(--brown-light);font-weight:300;max-width:340px;text-align:right;line-height:1.45;}
+
+/* Layout */
+.wrap{
+  max-width:1000px;
+  margin:0 auto;
+  padding:36px 48px;
+  display:flex;
+  flex-direction:column;
+  gap:24px;
+}
+
+/* Cards */
+.card{
+  background:var(--cream-light);
+  border:1px solid var(--wine-border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+}
+
+.card-h{
+  padding:14px 24px;
+  border-bottom:1px solid var(--wine-border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.card-h .label{
+  font-size:13px;
+  font-weight:500;
+  color:var(--wine);
+  text-transform:uppercase;
+  letter-spacing:0.4px;
+}
+
+.card-b{padding:24px;}
+
+/* Buttons */
+.btn{
+  padding:8px 16px;
+  border-radius:5px;
+  font-size:13px;
+  font-weight:400;
+  font-family:inherit;
+  cursor:pointer;
+  border:1px solid var(--wine-border);
+  background:var(--cream-light);
+  color:var(--brown);
+  transition:all .15s;
+  white-space:nowrap;
+}
+.btn:hover{background:var(--cream-dark);color:var(--ink);}
+.btn.active{background:var(--wine);color:#fff;border-color:var(--wine);}
+
+.btn-go{
+  background:var(--wine);
+  color:#fff;
+  border-color:var(--wine);
+  font-weight:500;
+  padding:9px 24px;
+  font-size:14px;
+}
+.btn-go:hover{background:var(--wine-deep);}
+.btn-go:disabled{opacity:.35;cursor:not-allowed;}
+
+/* Textarea */
+textarea.ri{
+  width:100%;
+  min-height:260px;
+  padding:20px;
+  border:1px solid var(--wine-border);
+  border-radius:5px;
+  font-family:'SF Mono','JetBrains Mono','Fira Code','Consolas',monospace;
+  font-size:13.5px;
+  font-weight:400;
+  line-height:1.85;
+  resize:vertical;
+  background:var(--cream);
+  color:var(--ink);
+}
+textarea.ri:focus{outline:none;border-color:var(--wine-light);background:var(--cream-light);}
+textarea.ri::placeholder{color:var(--brown-light);font-family:'Inter',sans-serif;font-weight:300;font-size:14px;}
+
+.card-foot{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 24px;
+  border-top:1px solid var(--wine-border);
+}
+.card-foot .hint{font-size:12px;color:var(--brown-light);}
+
+/* Progress */
+.prog{display:none;}
+.prog.on{display:block;}
+
+.ptrack{height:3px;background:var(--cream-dark);border-radius:2px;overflow:hidden;margin-bottom:14px;}
+.pfill{height:100%;background:var(--wine);border-radius:2px;transition:width .3s;}
+
+.pstat{font-size:14px;color:var(--brown);display:flex;align-items:center;gap:10px;}
+
+.dot{width:14px;height:14px;border:2px solid var(--cream-dark);border-top-color:var(--wine);border-radius:50%;animation:sp .7s linear infinite;flex-shrink:0;}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.plive{
+  margin-top:16px;
+  overflow-y:visible;
+  font-size:13px;
+  line-height:1.7;
+  color:var(--brown);
+}
+.plive-item{
+  padding:3px 0;
+  display:flex;
+  gap:8px;
+  align-items:baseline;
+}
+.plive-item .icon{flex-shrink:0;width:18px;text-align:center;}
+.plive-item .text{color:var(--ink);}
+.plive-item.pending .text{color:var(--brown-light);}
+
+/* Results */
+.res{display:none;}
+.res.on{display:block;}
+
+.srow{display:flex;gap:12px;padding:16px 24px;border-bottom:1px solid var(--wine-border);flex-wrap:wrap;}
+.pill{
+  display:flex;align-items:center;gap:7px;
+  padding:7px 16px;border-radius:5px;
+  font-size:14px;font-weight:400;
+}
+.pill .n{font-size:18px;font-weight:500;}
+.pill.p-all{background:var(--wine-faint);color:var(--wine);}
+.pill.p-ok{background:var(--ok-bg);color:var(--ok);}
+.pill.p-warn{background:var(--warn-bg);color:var(--warn);}
+.pill.p-err{background:var(--err-bg);color:var(--err);}
+
+.rbody{padding:24px;}
+
+.entry{
+  padding:18px 20px;
+  margin-bottom:12px;
+  border-radius:5px;
+  border-left:3px solid;
+  font-size:14px;
+  line-height:1.75;
+}
+.entry.e-ok{background:var(--ok-bg);border-color:var(--ok);}
+.entry.e-warn{background:var(--warn-bg);border-color:var(--warn);}
+.entry.e-err{background:var(--err-bg);border-color:var(--err);}
+
+.entry .ref{
+  font-family:'SF Mono','JetBrains Mono','Consolas',monospace;
+  font-size:13px;
+  word-break:break-word;
+}
+.entry .ann{
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid rgba(0,0,0,.06);
+  font-size:13px;
+  color:var(--brown);
+}
+.entry .ann-line{margin-bottom:3px;}
+.entry .ann-line.match{color:var(--ok);}
+.entry .ann-line.mismatch{color:var(--err);}
+.entry .ann-line.source{color:var(--brown-light);font-style:italic;}
+.entry .found-record{
+  margin-top:8px;padding:10px 14px;
+  background:rgba(0,0,0,.03);border-radius:4px;
+  font-size:12px;line-height:1.65;
+}
+.entry a{color:var(--wine);text-decoration:none;}
+.entry a:hover{text-decoration:underline;}
+
+/* Filters */
+.flts{display:flex;gap:4px;}
+.fp{
+  padding:5px 11px;border-radius:4px;font-size:12px;font-weight:400;
+  cursor:pointer;border:1px solid transparent;background:none;
+  color:var(--brown-light);font-family:inherit;transition:all .15s;
+}
+.fp:hover{color:var(--brown);background:var(--cream-dark);}
+.fp.on{background:var(--wine-faint);color:var(--wine);border-color:var(--wine-border);}
+
+/* Raw box */
+.raw-wrap{
+  display:none;margin:0 24px 24px;
+}
+.raw-wrap.on{display:block;}
+.raw-toolbar{
+  display:flex;justify-content:flex-end;margin-bottom:8px;padding-top:4px;
+}
+.raw-copy{
+  padding:5px 16px;
+  background:var(--wine);color:#fff;border:none;border-radius:4px;
+  font-size:12px;cursor:pointer;font-family:Inter,sans-serif;
+  letter-spacing:0.3px;
+}
+.raw-copy:hover{background:var(--wine-deep);}
+.raw{
+  padding:20px;
+  background:var(--cream);border-radius:8px;border:1px solid var(--cream-dark);
+  font-family:'SF Mono','Menlo','Consolas',monospace;font-size:12.5px;
+  white-space:pre-wrap;word-break:break-word;line-height:1.8;
+  color:var(--brown);
+}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:24px;right:24px;padding:10px 20px;
+  background:var(--wine-deep);color:#fff;border-radius:6px;
+  font-size:14px;font-weight:400;
+  transform:translateY(80px);opacity:0;transition:all .25s;z-index:1000;
+}
+.toast.on{transform:translateY(0);opacity:1;}
+
+@media(max-width:768px){
+  .header,.wrap{padding-left:20px;padding-right:20px;}
+  .srow{flex-direction:column;gap:8px;}
+  .header{height:60px;}
+  .header-left img{height:36px;}
+  .header-right .info{display:none;}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <img src="https://intersections.tk.mta.hu/public/journals/1/pageHeaderLogoImage_en_US.svg" alt="Intersections">
+    <div class="sep"></div>
+    <div class="title">Reference Checker</div>
+  </div>
+  <div class="header-right">
+    <div class="info">Verifies references against CrossRef, OpenAlex, Semantic Scholar, Open Library, Google Books and arXiv.</div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- Input card -->
+  <div class="card">
+    <div class="card-h">
+      <span class="label">Paste reference list</span>
+      <div style="display:flex;gap:6px;">
+        <button class="btn" onclick="clr()">Clear</button>
+      </div>
+    </div>
+    <div class="card-b">
+      <textarea class="ri" id="refIn" placeholder="Paste your reference list here (APA, Harvard, Chicago, or any standard academic format)..." oninput="uc()"></textarea>
+    </div>
+    <div class="card-foot">
+      <span class="hint" id="hint"></span>
+      <button class="btn btn-go" id="goBtn" onclick="go()" disabled>Check References</button>
+    </div>
+  </div>
+
+  <!-- Progress card -->
+  <div class="card prog" id="progCard">
+    <div class="card-h"><span class="label" id="progLabel">Checking references...</span></div>
+    <div class="card-b">
+      <div class="ptrack"><div class="pfill" id="pbar" style="width:0%"></div></div>
+      <div class="pstat"><div class="dot"></div><span id="ptxt">Starting...</span></div>
+      <div class="plive" id="plive"></div>
+    </div>
+  </div>
+
+  <!-- Results card -->
+  <div class="card res" id="resCard">
+    <div class="card-h">
+      <span class="label">Results</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <div class="flts">
+          <button class="fp on" onclick="filt('all',this)">All</button>
+          <button class="fp" onclick="filt('ok',this)">Verified</button>
+          <button class="fp" onclick="filt('warn',this)">Uncertain</button>
+          <button class="fp" onclick="filt('error',this)">Errors</button>
+        </div>
+        <button class="btn" id="rawBtn" onclick="toggleRaw()">Raw</button>
+        <button class="btn" onclick="exp()">Export</button>
+      </div>
+    </div>
+    <div class="srow" id="sumRow"></div>
+    <div class="rbody" id="resBody"></div>
+    <div class="raw-wrap" id="rawWrap">
+      <div class="raw-toolbar"><button class="raw-copy" onclick="copyRaw()">Copy</button></div>
+      <div class="raw" id="rawBox"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================
+   CONFIGURATION
+   ============================================ */
+const MAILTO = 'intersections@tk.mta.hu';
+const CROSSREF_API = 'https://api.crossref.org';
+const OPENALEX_API = 'https://api.openalex.org';
+const S2_API = 'https://api.semanticscholar.org/graph/v1';
+const MAX_CONCURRENT = 3;
+const REQ_DELAY = 350; // ms between requests to be polite
+
+/* ============================================
+   REFERENCE PARSING
+   ============================================ */
+
+// Lowercase name particles that can begin an author surname (Dutch/German/French/Italian/Portuguese/Spanish)
+// Used so references like "van Leeuwen, T. (2008)..." or "de Graaf, J. (2019)..." are recognised
+// even though they start with a lowercase letter.
+const LOWERCASE_PARTICLES = 'van|von|de|di|la|le|der|den|des|du|da|do|del|della|dello|ter|ten|af|av|zu';
+// Matches the start of a reference beginning with either a capital letter OR a lowercase particle + space + capital
+const REF_START_RE = new RegExp('^(?:[A-Z\\u00C0-\\u024F]|(?:' + LOWERCASE_PARTICLES + ')\\s+[A-Z\\u00C0-\\u024F])');
+
+// OSCOLA citation style: "Surname Initials, ..." — e.g. "Becker GS," or "Pontell HN, Black WK and Geis G,"
+// Authors use surname followed by unpunctuated initials (unlike APA's "Becker, G.S.")
+// Each author is: (optional particle — case-insensitive) Surname (may be hyphenated) + space + 1-4 uppercase initials
+// followed by an optional generational suffix (Jr / Sr / II / III / IV).
+// Authors are separated by ", " or " and ". The whole author list ends with a terminal ", " before the title.
+// OSCOLA often capitalizes particles ("De Nicola F") so we accept either case here.
+const OSCOLA_PARTICLES = LOWERCASE_PARTICLES.split('|')
+  .map(p => '[' + p.charAt(0).toUpperCase() + p.charAt(0) + ']' + p.slice(1))
+  .join('|');
+// Surname body accepts internal capitals (McBarnet, MacDonald, O'Brien). Using
+// [A-Z][A-Za-z]+ rather than [A-Z][a-z]+ is critical: "McCrary" and "McBarnet" have
+// a capital mid-word and would otherwise fail to match as a CORE unit.
+const OSCOLA_AUTHOR_CORE = '(?:(?:' + OSCOLA_PARTICLES + ')\\s+)?[A-Z\\u00C0-\\u024F][A-Za-z\\u00C0-\\u024F]+(?:[-\'\\u2019][A-Z\\u00C0-\\u024F][A-Za-z\\u00C0-\\u024F]+)?\\s+[A-Z\\u00C0-\\u024F]{1,4}(?:\\s+(?:Jr|Sr|II|III|IV))?';
+// Allow trailing "and others" / "et al" / "et al." — common OSCOLA author-list terminators
+const OSCOLA_AUTHOR_LIST = OSCOLA_AUTHOR_CORE + '(?:(?:,\\s+|\\s+and\\s+)' + OSCOLA_AUTHOR_CORE + ')*(?:\\s+and\\s+others|\\s+et\\s+al\\.?)?';
+const OSCOLA_AUTHOR_RE = new RegExp('^' + OSCOLA_AUTHOR_LIST + ',\\s');
+
+// OSCOLA org-author form: "OrgName, '...'" — an organization name (1-6 capitalized words,
+// optionally including small-caps acronyms or connectives) followed by a comma and then
+// a single-quoted article title. We REQUIRE the single-quoted title because an unquoted
+// title after a comma is ambiguous with APA author-initial patterns like "Smith, J.".
+// Examples: "Europol, '...'", "FATF, '...'", "DOJ, '...'", "Transparency International, '...'"
+// NOTE: unquoted book form "Org, Title (Publisher Year)" is handled via a separate
+// book-title extractor below (it doesn't need a start-detector since split-by-line catches it).
+// Word body accepts optional trailing 's (US Attorney's, People's) and internal caps (MacBank).
+const OSCOLA_ORG_WORD = '(?:[A-Z\\u00C0-\\u024F][A-Za-z\\u00C0-\\u024F]+(?:[\'\\u2019]s)?|[A-Z]{2,}(?:\\.[A-Z]+)*)';
+// Org core: main name followed by an optional abbreviation paren like "(IC3)", "(FATF)",
+// "(FBI)" so names such as "FBI Internet Crime Complaint Center (IC3)" are recognised.
+// The abbrev accepts capitals + digits (IC3) and allows up to 6 slots in the main part.
+const OSCOLA_ORG_CORE = OSCOLA_ORG_WORD +
+  '(?:\\s+(?:' + OSCOLA_ORG_WORD + '|and|&|of|for|the|on|to)){0,6}' +
+  '(?:\\s*\\([A-Z][A-Z0-9]+\\))?';
+// Subunit: optional ", SDNY" or ", Office of Public Affairs" after the main org core
+const OSCOLA_ORG_SUB = '(?:,\\s+' + OSCOLA_ORG_WORD + '(?:\\s+(?:' + OSCOLA_ORG_WORD + '|and|&|of|for|the|on|to)){0,4})?';
+const OSCOLA_ORG_RE = new RegExp('^' + OSCOLA_ORG_CORE + OSCOLA_ORG_SUB + ',\\s+[\'\\u2018\\u2019]');
+
+// Check if a chunk looks like an OSCOLA reference start (person or organization)
+function looksLikeOscolaEntry(text) {
+  if (!text || text.length < 25) return false;
+  // Must have a year somewhere in first 500 chars — OSCOLA always cites the year
+  if (!/\b(?:1[89]|20)\d{2}\b/.test(text.substring(0, 500))) return false;
+  // Reject common non-author sentence starters
+  if (/^(The|This|That|These|Those|There|When|Where|While|Which|What|From|With|Without|After|Before|Since|In)\b/i.test(text)) return false;
+  if (OSCOLA_AUTHOR_RE.test(text)) return true;
+  // Org form — requires title in single quotes OR unquoted title followed by "(" (book publisher paren)
+  if (OSCOLA_ORG_RE.test(text)) {
+    // Must have either a single-quoted title or a "(Publisher Year)" pattern to distinguish from APA-ish
+    if (/['\u2018\u2019]/.test(text.substring(0, 200))) return true;
+    if (/\([^)]*\b(?:1[89]|20)\d{2}\)/.test(text.substring(0, 400))) return true;
+  }
+  // Org form with an UNQUOTED book/report title, e.g.
+  //   "FBI Internet Crime Complaint Center (IC3), Internet Crime Report 2024 (23 April 2025)"
+  //   "Chainalysis, 2026 Crypto Crime Report (13 January 2026)"
+  //   "TRM Labs, 2026 Crypto Crime Report (28 January 2026)"
+  // We require a publisher/date paren containing a year somewhere later in the chunk,
+  // which distinguishes it from plain prose or APA continuations.
+  const oscolaOrgBookStart = new RegExp(
+    '^' + OSCOLA_ORG_CORE + OSCOLA_ORG_SUB + ',\\s+(?:[A-Z\\u00C0-\\u024F][A-Za-z\\u00C0-\\u024F]|\\d{2})'
+  );
+  if (oscolaOrgBookStart.test(text)) {
+    if (/\([^)]*\b(?:1[89]|20)\d{2}[a-z]?\)/.test(text.substring(0, 400))) return true;
+  }
+  return false;
+}
+
+// Check if a text chunk looks like the start of a new reference
+// Must start with a capital letter, contain (Year) near the beginning,
+// and NOT have sentence boundaries between the start and the year
+function looksLikeNewRef(chunk) {
+  if (!chunk || chunk.length < 10) return false;
+  // DOI/URL lines are NOT new references — they're continuations
+  if (/^\s*(?:DOI\s*:|https?:\/\/|doi[:.]\s*10\.)/i.test(chunk) || /^\s*10\.\d{4,}\//.test(chunk)) return false;
+  // Journal metadata lines (e.g. "Journal Name, 49(5), 605–628.") are continuations, not new refs
+  // Only match if vol/issue pattern is early (first 80 chars) AND there's no (Year) near the start
+  // — full references like "McCourt, D. M. (2011). Title. Journal, 37(4), 1705" have (Year) early
+  if (/^\s*[A-Z][a-z]/.test(chunk) && /\d+\s*\(\d+\)\s*[,:]\s*\d/.test(chunk.substring(0, 80)) && !/\(\d{4}[a-z]?\)/.test(chunk.substring(0, 60))) return false;
+  // Must start with a capital letter, or a lowercase particle + capital (e.g. "van Leeuwen")
+  if (!REF_START_RE.test(chunk)) return false;
+  // Reject chunks starting with a single initial like "K.," or "B. " — continuation of author list
+  // Real references start with multi-letter surnames (e.g. "Kovács,"), not lone initials
+  if (/^[A-Z\u00C0-\u024F][.,]/.test(chunk)) return false;
+  // Must NOT start with common non-author words
+  if (/^(In|The|A|An|And|But|Or|For|With|From|This|That|These|Those|Trans|Press|pp)\b/i.test(chunk)) return false;
+  // Find the first (Year) in the chunk — either (2001) or . 2001 or similar
+  const yearMatch = chunk.match(/[\(\.]\s*\d{4}[a-z]?\)?/);
+  if (!yearMatch) return false;
+  // The text before the year — should be author names, not sentences
+  const textBeforeYear = chunk.substring(0, yearMatch.index).trim();
+  // Author list should be <120 chars (even with many co-authors)
+  if (textBeforeYear.length > 120) return false;
+  // Reject if text before year contains journal/volume metadata — this is a citation continuation
+  // e.g. "History and Theory 41, no 2 (2022)" or "Philological Bulletin, vol. 3, no. 1 (2024)"
+  if (/\b(vol|no|issue|pp)\b\.?\s*\d/i.test(textBeforeYear)) return false;
+  // Also reject bare volume/issue patterns like "Series 2:" or "41, no."
+  if (/\d+,\s*no\b/i.test(textBeforeYear)) return false;
+  // Should NOT contain sentence boundaries: period + space + word >=3 chars
+  // (initials like "D. " or "M. " are OK — they're <=2 chars)
+  if (/\.\s+[A-Za-z\u00C0-\u024F]{3,}/.test(textBeforeYear)) return false;
+  // Closing parenthesis before a word >=3 chars also indicates a sentence
+  if (/\)\.\s+[A-Za-z\u00C0-\u024F]{3,}/.test(textBeforeYear)) return false;
+  // Author name before year must be at least 3 chars (shortest surname)
+  // Single letters like "J" or "A" are initials, not reference starts
+  if (textBeforeYear.length < 3) return false;
+  // Must contain at least one word with 3+ letters (a real surname or org name)
+  // Rejects lone initials like "S. J" or "J.F" which are split author fragments
+  if (!/[A-Za-z\u00C0-\u024F]{3,}/.test(textBeforeYear)) return false;
+  // Organizational authors are short (<50 chars). If textBeforeYear is long
+  // and has no comma near the start, it's probably a publisher/title, not an author
+  const hasAuthorComma = /^[^,]{1,30},/.test(textBeforeYear);
+  if (!hasAuthorComma && textBeforeYear.length > 50) return false;
+  return true;
+}
+
+function splitRefs(txt) {
+  // Strategy 0: Bullet-point references (e.g. "• Author1... • Author2...")
+  // Common when pasting from Word/PDF bulleted lists
+  // Also handles other bullet characters: ◦ ▪ ▸ ‣ ⁃ – —
+  // Bullet-split items are explicit separators — do NOT merge them back together
+  const bulletCount = (txt.match(/(?:^|\n)\s*[\u2022\u25E6\u25AA\u25B8\u2023\u2043]\s/g) || []).length;
+  if (bulletCount >= 3) {
+    const bulletRefs = txt.split(/(?:^|\n)\s*[\u2022\u25E6\u25AA\u25B8\u2023\u2043]\s+/)
+      .map(b => b.replace(/\s*\n\s*/g, ' ').trim())
+      .filter(r => r.length > 15);
+    if (bulletRefs.length >= 3) return bulletRefs;
+  }
+  // Also handle inline bullets (no line breaks): "text • text • text"
+  const inlineBulletCount = (txt.match(/\s[\u2022\u25E6\u25AA\u25B8\u2023\u2043]\s/g) || []).length;
+  if (inlineBulletCount >= 3) {
+    const bulletRefs = txt.split(/\s*[\u2022\u25E6\u25AA\u25B8\u2023\u2043]\s+/)
+      .map(b => b.replace(/\s*\n\s*/g, ' ').trim())
+      .filter(r => r.length > 15);
+    if (bulletRefs.length >= 3) return bulletRefs;
+  }
+
+  // Strategy 1: Numbered references (e.g. "1. Author... 2. Author...")
+  // Only match small numbers (1-999) to avoid matching years like "2022. Vol..."
+  // The number must be at the start of a line, after a tab, or at text start
+  // NOTE: use \s* (not \s+) because PDF/Word extraction often loses the space between
+  // a double-digit number and the following surname (e.g. "10.Lozo O." instead of "10. Lozo O.")
+  const numberedRe = /(?:^|\n)\s*(\d{1,3})\.\s*[A-Z\u00C0-\u024F][a-zA-Z\u00C0-\u024F]/g;
+  const numberedMatches = [...txt.matchAll(numberedRe)];
+  if (numberedMatches.length >= 2) {
+    const nums = numberedMatches.map(m => parseInt(m[1]));
+    // Require: starts at 1 (or 0) and roughly sequential
+    const startsLow = nums[0] <= 1;
+    const isSequential = nums.every((n, i) => i === 0 || (n >= nums[i-1] && n <= nums[i-1] + 2));
+    if (startsLow && isSequential && nums.length >= 3) {
+      // Once confirmed as numbered list, split on "N. Letter" (upper or lowercase, but NOT digits like "10.15507" DOIs)
+      // Require the next char after \s* to be a LETTER (not digit) to avoid matching DOI prefixes
+      const parts = txt.split(/(?=(?:^|\n)\s*\d{1,3}\.\s*[A-Za-z\u00C0-\u024F][a-zA-Z\u00C0-\u024F])/);
+      const numbered = parts.map(p => p.trim().replace(/^\d{1,3}\.\s*/, '')).filter(r => r.length > 15);
+      if (numbered.length >= 2) return numbered; // Numbered refs are already well-split — skip postSplitMerged
+    }
+  }
+
+  const hasLineBreaks = txt.includes('\n');
+
+  // Strategy 2a: Blank-line splitting
+  if (hasLineBreaks && /\n\s*\n/.test(txt)) {
+    const blankLineRefs = txt.split(/\n\s*\n/)
+      .map(b => b.replace(/\s*\n\s*/g, ' ').trim())
+      .filter(r => r.length > 15);
+    if (blankLineRefs.length >= 2) {
+      // Re-merge fragments that don't look like reference starts
+      // (handles PDFs where blank lines appear within multi-line references)
+      // Pass 1: short fragments without year (<40 chars) — try prepending to NEXT chunk
+      // This fixes cases like "Ball, S." / "J. (2015)..." where the author name was split
+      for (let i = blankLineRefs.length - 2; i >= 0; i--) {
+        const chunk = blankLineRefs[i + 1];
+        const prev = blankLineRefs[i];
+        if (prev.length < 40 && !/\(\d{4}/.test(prev) && !looksLikeNewRef(prev)) {
+          const combined = prev + ' ' + chunk;
+          if (looksLikeNewRef(combined) || !looksLikeNewRef(chunk)) {
+            // Prepending makes a valid ref start, or next chunk wasn't a ref start anyway
+            blankLineRefs[i + 1] = combined;
+            blankLineRefs.splice(i, 1);
+          }
+        }
+      }
+      // Pass 2: merge non-reference chunks with previous
+      // Also merges when previous entry ends with partial author list
+      // (trailing &, & X., , X., or bare comma — indicates split author names)
+      const merged = [blankLineRefs[0]];
+      for (let i = 1; i < blankLineRefs.length; i++) {
+        const chunk = blankLineRefs[i];
+        const prevMerged = merged[merged.length - 1];
+        // Check if previous entry ends with a partial author list
+        const prevEndsPartial = /(&\s*$|&\s+[A-Z]\.\s*$|,\s+[A-Z]\.\s*$)/.test(prevMerged);
+        if (prevEndsPartial || !looksLikeNewRef(chunk)) {
+          // Merge: either prev is incomplete, or chunk isn't a new reference
+          merged[merged.length - 1] += ' ' + chunk;
+        } else {
+          merged.push(chunk);
+        }
+      }
+      if (merged.length >= 2) return postSplitMerged(merged);
+    }
+  }
+
+  // Strategy 2b: Line-by-line splitting — PRIMARY strategy when text has line breaks
+  if (hasLineBreaks) {
+    const lines = txt.split('\n');
+    const refs = [];
+    let cur = [];
+    for (const l of lines) {
+      if (l.trim()) {
+        const trimmed = l.trim();
+        // Use \s* (not \s+) so "10.Lozo" (no space after number) is recognised as numbered too
+        const isNumbered = new RegExp('^\\d+\\.\\s*(?:[A-Z\\u00C0-\\u024F]|(?:' + LOWERCASE_PARTICLES + ')\\s+[A-Z\\u00C0-\\u024F])').test(trimmed);
+        // Only treat as new ref if previous line looks like a complete reference ending
+        const prevLine = cur.length > 0 ? cur[cur.length - 1].trim() : '';
+        const prevEndsLikeRef = prevLine === '' ||
+          /[.)\]\d]$/.test(prevLine) ||
+          /https?:\/\/\S+$/.test(prevLine) ||
+          /doi\.org\/\S+$/.test(prevLine);
+        const isDOIorURL = /^\s*(?:DOI\s*:|https?:\/\/|doi[:.]\s*10\.)/i.test(trimmed) || /^\s*10\.\d{4,}\//.test(trimmed);
+        // Journal metadata continuation: "Journal Name, Vol(Issue), Pages. DOI" — not a new reference
+        // Only if vol/issue is early AND no (Year) near start — otherwise it's a full reference
+        const isJournalMeta = /^\s*[A-Z][a-z]/.test(trimmed) && /\d+\s*\(\d+\)\s*[,:]\s*\d/.test(trimmed.substring(0, 80)) && !/\(\d{4}[a-z]?\)/.test(trimmed.substring(0, 60));
+        // Year detection: accept APA "(2020)" / ", 2020" AND plain-year styles like
+        // "Cheriet, M. 2020. Title..." or "...Licence and... 1993. https://..." or "...2019. https://reyestr..."
+        // Any 4-digit year (1800-2099) anywhere in the line is fine — combined with REF_START_RE
+        // and prevEndsLikeRef, false positives are unlikely.
+        const isNewRef = !isDOIorURL && !isJournalMeta && prevEndsLikeRef && REF_START_RE.test(trimmed) && /\b(?:18|19|20)\d{2}\b/.test(l);
+        // Numbered entries (e.g. "11. McDonald J.") are always new refs — no need for prevEndsLikeRef
+        if (cur.length > 0 && (isNumbered || isNewRef)) {
+          refs.push(cur.join(' ').trim());
+          cur = [isNumbered ? trimmed.replace(/^\d+\.\s*/, '') : trimmed];
+        } else {
+          cur.push(isNumbered ? trimmed.replace(/^\d+\.\s*/, '') : trimmed);
+        }
+      }
+    }
+    if (cur.length > 0) refs.push(cur.join(' ').trim());
+    const lineRefs = refs.filter(r => r.length > 15);
+    if (lineRefs.length >= 2) return postSplitMerged(lineRefs);
+  }
+
+  // Strategy 3: Inline splitting — ONLY used when text is a single paragraph (no line breaks)
+  // Supports APA, Chicago, MLA and other citation styles
+  const flat = txt.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+  const inlineRefs = splitInlineRefs(flat);
+  if (inlineRefs.length >= 2) return inlineRefs;
+
+  return [txt].filter(r => r.trim().length > 15);
+}
+
+// Check if text starts with an author-like pattern (for any citation style)
+// Less strict than looksLikeNewRef — doesn't require (Year) near the beginning
+// "Belyantsev, Aleksei" or "Bogost, Ian." or "McGonigal, Jane"
+function looksLikeAuthorStart(text) {
+  if (!text || text.length < 20) return false;
+  // Surname, Firstname/Initial: "Lastname, F" where F is capital
+  // Supports hyphenated names (Levi-Strauss), McX names (McGonigal), and accented chars
+  if (/^[A-Z\u00C0-\u024F][a-zA-Z\u00C0-\u024F''\u2019\-]{1,},\s+[A-Z]/.test(text)) {
+    // Reject common non-author words that happen to have commas after them
+    if (/^(In|The|New|St|Association|Press|University|MIT|Oxford|Cambridge|Moscow|London|Paris|Berlin),/i.test(text)) return false;
+    return true;
+  }
+  // Lowercase particle surname: "van Leeuwen, T." / "de Graaf, J." / "von Neumann, J."
+  const particleRe = new RegExp('^(?:' + LOWERCASE_PARTICLES + ')\\s+[A-Z\\u00C0-\\u024F][a-zA-Z\\u00C0-\\u024F\'\'\\u2019\\-]{1,},\\s+[A-Z]');
+  if (particleRe.test(text)) return true;
+  return false;
+}
+
+// Check if text starts with a new reference entry (any citation style)
+// Combines APA looksLikeNewRef with broader Chicago/MLA detection
+function looksLikeNewEntry(text) {
+  // Reject access/retrieval date lines — these belong to the previous reference
+  if (/^(?:Accessed|Retrieved|Available|Downloaded|Abgerufen|Zugriff|Letzter\s+Zugriff)\b/i.test(text)) return false;
+  // EARLY REJECT: Journal metadata lines like "Scandinavian Journal of History, 49(5), 605–628."
+  // Must check BEFORE looksLikeNewRef/looksLikeAuthorStart to prevent any false positives
+  // Only reject if vol/issue is early AND no (Year) near start (otherwise it's a full reference)
+  if (/^\s*[A-Z][a-z]/.test(text) && /\d+\s*\(\d+\)\s*[,:]\s*\d/.test(text.substring(0, 80)) && !/\(\d{4}[a-z]?\)/.test(text.substring(0, 60))) return false;
+  if (looksLikeNewRef(text)) return true;
+  if (looksLikeAuthorStart(text)) return true;
+  if (looksLikeOscolaEntry(text)) return true;
+  // Anonymised/redacted references: "[Publication anonymised]" or "[Author removed]" etc.
+  if (/^\[(?:Publication|Author|Reference|Name)\s/i.test(text)) return true;
+  // Organization or title start: capitalized word (may end with period) followed by more text
+  // Also match Mc/Mac/De/O' prefixed names like McDonald, McLachlan, DeZIM, O'Brien
+  if ((/^[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]{2,}[.\s]/.test(text) || /^(?:Mc|Mac|De|Di|Le|La|Van|Von|O')[A-Z]/.test(text)) && text.length >= 30) {
+    // Reject journal/volume continuation lines
+    // NOTE: "no" is excluded here because "No. NNN" is ambiguous — it can be a document number
+    // (e.g. "Resolution of the Cabinet of Ministers of Ukraine No. 340") not a journal issue.
+    // Real journal continuations almost always contain vol/issue/pp markers instead.
+    if (/\b(vol|issue|pp)\b\.?\s*\d/i.test(text.substring(0, 60))) return false;
+    if (/^\d+,?\s*no\b/i.test(text)) return false;
+    // Reject "Journal Name, Volume(Issue), Pages" patterns — e.g. "Scandinavian Journal of History, 49(5), 605–628"
+    if (/\d+\s*\(\d+\)\s*[,:]\s*\d/.test(text.substring(0, 80))) return false;
+    // Reject publisher names — these are endings of references, not starts of new ones
+    if (/^(Springer|Routledge|Palgrave|Waxmann|Elsevier|Wiley|Sage|Campus|Beltz|Suhrkamp|transcript|Nomos|Pearson|Jossey|Emerald|Bristol|Oxford|Cambridge|Harvard|Princeton|Stanford|MIT)\b/i.test(text)) return false;
+    // Must have a year or "n.d." within first 300 chars
+    if (/\b(19|20)\d{2}\b/.test(text.substring(0, 300))) return true;
+    if (/\bn\.?\s?d\.?\b/i.test(text.substring(0, 300))) return true;
+    // Or has a URL (web source without year)
+    if (/https?:\/\//.test(text.substring(0, 500))) return true;
+  }
+  return false;
+}
+
+// Post-processing: split any entry that accidentally merged two references on one line
+// Works for APA, Chicago, MLA, and other citation styles
+function postSplitMerged(refs) {
+  const result = [];
+  for (const ref of refs) {
+    const positions = [];
+
+    // Method 1: APA-style — find (Year) then look backwards for split point
+    const yearRe = /\(\d{4}[a-z]?\)/g;
+    let ym;
+    while ((ym = yearRe.exec(ref)) !== null) {
+      if (ym.index < 20) continue;
+      const before = ref.substring(0, ym.index);
+      const endRe = new RegExp('(https?:\\/\\/\\S+\\s+|[.)\\]]\\s+)(?:[A-Z\\u00C0-\\u024F]|(?:' + LOWERCASE_PARTICLES + ')\\s+[A-Z\\u00C0-\\u024F])', 'g');
+      let best = null;
+      let em;
+      while ((em = endRe.exec(before)) !== null) {
+        const splitAt = em.index + em[1].length;
+        const textJustBefore = before.substring(Math.max(0, em.index - 5), em.index + em[1].length);
+        if (/[&,]\s+[A-Z]\.\s+$/.test(textJustBefore)) continue;
+        const candidateRef = ref.substring(splitAt);
+        if (looksLikeNewRef(candidateRef) && splitAt > 30) {
+          best = splitAt;
+        }
+      }
+      if (best !== null && !positions.includes(best)) {
+        positions.push(best);
+      }
+    }
+
+    // Method 2: DOI/URL boundary — split after DOI or URL if followed by new author/entry
+    // Catches Chicago/MLA refs: "...doi:10.xxx Author, First..." or "...https://url Author, First..."
+    const doiUrlEndRe = /(doi[:.]10\.\S+|https?:\/\/\S+)\s+/g;
+    let dm;
+    while ((dm = doiUrlEndRe.exec(ref)) !== null) {
+      const afterIdx = dm.index + dm[0].length;
+      if (afterIdx < 30 || afterIdx >= ref.length - 20) continue;
+      if (positions.includes(afterIdx)) continue;
+      const after = ref.substring(afterIdx);
+      if (looksLikeNewEntry(after)) {
+        positions.push(afterIdx);
+      }
+    }
+
+    // Method 3: Book-end pattern — "Publisher, Year." or just "Year." followed by new author
+    // Catches: "MIT Press, 2007. Author, First..." or "Moscow: Nauka, 2003. Author..."
+    const bookEndRe = /(?:,\s+|\.\s+|\()((?:19|20)\d{2})\)?\.\s+([A-Z\u00C0-\u024F])/g;
+    let bm;
+    while ((bm = bookEndRe.exec(ref)) !== null) {
+      // The new reference starts at the capital letter after "Year. "
+      const splitAt = bm.index + bm[0].length - 1; // position of the capital letter
+      if (splitAt < 30 || splitAt >= ref.length - 20) continue;
+      if (positions.includes(splitAt)) continue;
+      // Skip if this is an APA "(Year). Title" pattern — text before year ends with initials/&
+      // e.g. "Chen, Y.-W., & Hao, Y. (2020). Czech perceptions..."
+      // or "Krivokhizh, S., Soboleva, E., & HSE University. (2023). Strategic..."
+      const textBefore = ref.substring(Math.max(0, bm.index - 30), bm.index + 1);
+      if (/[A-Z]\.\s*\(?$/.test(textBefore) || /&\s+[A-Z]\.\s*\(?$/.test(textBefore) || /[A-Z]\.-[A-Z]\.\s*,?\s*\(?$/.test(textBefore)) continue;
+      // Also skip if year is in parentheses and preceded by typical APA author ending
+      const textBeforeClean = ref.substring(Math.max(0, bm.index - 30), bm.index).replace(/\s*$/, '');
+      if (bm[0].startsWith('(')) {
+        // CRITICAL: only split at APA "(YYYY)." if there was already an earlier (YYYY)
+        // in the reference. If this is the FIRST (YYYY) in the whole ref, it's the year
+        // of the current reference itself (especially for organization-author refs like
+        // "Republic of Kazakhstan. (1995). Constitution of..." or
+        // "Bureau of National Statistics... (2025). Official website. https://..."),
+        // NOT a split point to a new APA reference.
+        const textBeforeAll = ref.substring(0, bm.index);
+        if (!/\(\d{4}[a-z]?\)/.test(textBeforeAll)) continue;
+        // Check if the broader context before looks like APA authors (has initials like "X." or "X.-X.")
+        const broaderBefore = ref.substring(Math.max(0, bm.index - 120), bm.index);
+        if (/[A-Z]\.\s*[,&]/.test(broaderBefore) || /[A-Z]\.-[A-Z]\./.test(broaderBefore)) continue;
+        // Also skip if text before ends with period+space (common in APA: "University. (2023)")
+        if (/\.\s*$/.test(textBeforeClean) && /[A-Z]\.,/.test(broaderBefore)) continue;
+        // Skip if preceded by organization abbreviation in parens: "(BIBB). (2020)" or "(DeZIM). (2022)"
+        if (/\([A-Za-z]{2,}\)\.\s*$/.test(textBeforeClean)) continue;
+      }
+      const after = ref.substring(splitAt);
+      if (looksLikeNewEntry(after)) {
+        positions.push(splitAt);
+      }
+    }
+
+    // Method 4: Page-range end pattern — "pages. Author, First..." or "pages–pages. Author..."
+    const pageEndRe = /\d+[\u2013\u2014-]\d+\.\s+([A-Z\u00C0-\u024F])/g;
+    let pm;
+    while ((pm = pageEndRe.exec(ref)) !== null) {
+      const capMatch = pm[0].match(/\.\s+([A-Z])/);
+      const splitAt = pm.index + pm[0].indexOf(capMatch[0]) + capMatch[0].length - 1;
+      if (splitAt < 30 || splitAt >= ref.length - 20) continue;
+      if (positions.includes(splitAt)) continue;
+      const after = ref.substring(splitAt);
+      if (looksLikeNewEntry(after)) {
+        positions.push(splitAt);
+      }
+    }
+
+    // Method 5: Closing bracket ] followed by new entry
+    // Catches: "...politika] Bankhurst, Adam..." or "...itogi] Haass, Richard..."
+    const bracketEndRe = /\]\.?\s+([A-Z\u00C0-\u024F])/g;
+    let brm;
+    while ((brm = bracketEndRe.exec(ref)) !== null) {
+      // Split point is at the captured capital letter
+      const splitAt = brm.index + brm[0].length - 1;
+      if (splitAt < 30 || splitAt >= ref.length - 20) continue;
+      if (positions.includes(splitAt)) continue;
+      const after = ref.substring(splitAt);
+      // Skip if what follows looks like journal info: "Közgazdasági Szemle [Economic Review], 3(70)..."
+      // Check: does the text after ] contain volume/issue pattern within first 80 chars?
+      if (/\d+\s*\(\d+\)/.test(after.substring(0, 80))) continue;
+      // Skip if the ] closes a bracketed translation that is part of the SAME reference
+      // Look back for matching [ — if there's a [ after the last split position, it's an inline bracket
+      const textBefore = ref.substring(Math.max(0, positions.length > 0 ? positions[positions.length - 1] : 0), brm.index);
+      const lastOpen = textBefore.lastIndexOf('[');
+      const lastClose = textBefore.lastIndexOf(']');
+      if (lastOpen > lastClose) continue; // This ] closes a [ within the same reference
+      if (looksLikeNewEntry(after)) {
+        positions.push(splitAt);
+      }
+    }
+
+    // Sort and deduplicate
+    positions.sort((a, b) => a - b);
+    // Remove positions that are too close to each other (< 30 chars apart)
+    const filtered = [];
+    for (const p of positions) {
+      if (filtered.length === 0 || p - filtered[filtered.length - 1] >= 30) {
+        filtered.push(p);
+      }
+    }
+
+    if (filtered.length > 0) {
+      let prev = 0;
+      for (const pos of filtered) {
+        const chunk = ref.substring(prev, pos).trim();
+        if (chunk.length > 15) result.push(chunk);
+        prev = pos;
+      }
+      const last = ref.substring(prev).trim();
+      if (last.length > 15) result.push(last);
+    } else {
+      result.push(ref);
+    }
+  }
+  // Final pass: merge orphan fragments that don't look like new reference entries
+  // This catches journal continuation lines, stray page ranges, etc. that got split off
+  if (result.length >= 2) {
+    const final = [result[0]];
+    for (let i = 1; i < result.length; i++) {
+      if (looksLikeNewEntry(result[i])) {
+        final.push(result[i]);
+      } else {
+        final[final.length - 1] += ' ' + result[i];
+      }
+    }
+    return final;
+  }
+  return result;
+}
+
+function splitInlineRefs(txt) {
+  // Find all positions where a reference likely starts (works for APA, Chicago, MLA, etc.)
+  const starts = [];
+  let m;
+
+  // Pattern 1: APA-style — Surname, F. ... (Year)
+  // Also matches lowercase particle surnames: "van Leeuwen, T." / "de Graaf, J."
+  const apaRe = new RegExp(
+    '(?:[A-Z\\u00C0-\\u024F][a-z\\u00C0-\\u024F]+(?:[-\'][A-Z]?[a-z\\u00C0-\\u024F]*)?|(?:' + LOWERCASE_PARTICLES + ')\\s+[A-Z\\u00C0-\\u024F][a-z\\u00C0-\\u024F]+(?:[-\'][A-Z]?[a-z\\u00C0-\\u024F]*)?),\\s+[A-Z]\\.',
+    'g'
+  );
+  while ((m = apaRe.exec(txt)) !== null) {
+    const pos = m.index;
+    if (pos === 0) { starts.push(pos); continue; }
+    const beforeWide = txt.substring(Math.max(0, pos - 10), pos);
+    if (/[&]\s*$/.test(beforeWide) || /\band\s+$/i.test(beforeWide)) continue;
+    if (/[A-Z]\.,\s*$/.test(beforeWide)) continue;
+    const before = txt.substring(Math.max(0, pos - 3), pos);
+    if (/[.)\/\s]\s*$/.test(before)) {
+      const after = txt.substring(pos, pos + 200);
+      if (/\(\d{4}\)/.test(after)) {
+        starts.push(pos);
+      }
+    }
+  }
+
+  // Pattern 2: Chicago/MLA-style — Surname, Firstname ... after DOI/URL/page-end/year-end
+  // "Author, Firstname" preceded by DOI, URL, page range, or year+period
+  const chicagoRe = /[A-Z\u00C0-\u024F][a-zA-Z\u00C0-\u024F''\u2019\-]{1,},\s+[A-Z][a-z\u00C0-\u024F]{1,}/g;
+  while ((m = chicagoRe.exec(txt)) !== null) {
+    const pos = m.index;
+    if (pos === 0) { if (!starts.includes(pos)) starts.push(pos); continue; }
+    if (starts.includes(pos)) continue;
+    const beforeWide = txt.substring(Math.max(0, pos - 15), pos);
+    // Skip co-authors
+    if (/[&]\s*$/.test(beforeWide) || /\band\s+$/i.test(beforeWide)) continue;
+    if (/,\s*$/.test(beforeWide) && /[A-Z]\.\s*,\s*$/.test(beforeWide)) continue;
+    if (/et\s+al\.\s*$/.test(beforeWide)) continue;
+    // Must be preceded by a strong boundary: DOI, URL, page range, or year+period
+    const beforeChunk = txt.substring(Math.max(0, pos - 200), pos);
+    const hasDOIorURL = /(doi[:.]10\.\S+|https?:\/\/\S+)\s*$/.test(beforeChunk);
+    const hasPageEnd = /\d+[\u2013\u2014-]\d+\.\s*$/.test(beforeChunk);
+    const hasYearEnd = /(?:,\s+|\.\s+)(?:19|20)\d{2}\.\s*$/.test(beforeChunk);
+    const hasBracketEnd = /\]\s*$/.test(beforeChunk);
+    if (hasDOIorURL || hasPageEnd || hasYearEnd || hasBracketEnd) {
+      starts.push(pos);
+    }
+  }
+
+  // Pattern 3: Organization abbreviations "HRW." "ICRC." "UN." followed by (Year)
+  const orgRe = /[A-Z]{2,}\.\s*\(\d{4}\)/g;
+  while ((m = orgRe.exec(txt)) !== null) {
+    const pos = m.index;
+    if (pos === 0 || /[.)\/\s]\s*$/.test(txt.substring(Math.max(0, pos - 3), pos))) {
+      if (!starts.includes(pos)) starts.push(pos);
+    }
+  }
+
+  // Pattern 4: OSCOLA-style (person form) — "Surname Initials, ..."
+  // Each entry begins with author list ending in ", " followed by either ' (quoted title), " (quoted title),
+  // or a capital letter (unquoted book title).
+  const oscolaRe = new RegExp(OSCOLA_AUTHOR_LIST + ',\\s+(?:[\'\u2018\u2019"\u201C]|[A-Z\\u00C0-\\u024F])', 'g');
+  while ((m = oscolaRe.exec(txt)) !== null) {
+    const pos = m.index;
+    if (starts.includes(pos)) continue;
+    if (pos === 0) { starts.push(pos); continue; }
+    const beforeWide = txt.substring(Math.max(0, pos - 15), pos);
+    if (/\band\s+$/i.test(beforeWide)) continue;
+    if (/,\s*$/.test(beforeWide)) continue;
+    const before5 = txt.substring(Math.max(0, pos - 5), pos);
+    if (/[\d)\]\.]\s*$/.test(before5)) {
+      const slice = txt.substring(pos, pos + 400);
+      if (/\b(?:1[89]|20)\d{2}\b/.test(slice)) {
+        starts.push(pos);
+      }
+    }
+  }
+
+  // Pattern 5: OSCOLA org-form — "OrgName, '...'" with single-quoted title (strong OSCOLA signal)
+  // Also handles optional subunit like "US Attorney's Office, SDNY, '...'"
+  const oscolaOrgRe = new RegExp(OSCOLA_ORG_CORE + OSCOLA_ORG_SUB + ',\\s+[\'\u2018\u2019]', 'g');
+  while ((m = oscolaOrgRe.exec(txt)) !== null) {
+    const pos = m.index;
+    if (starts.includes(pos)) continue;
+    if (pos === 0) { starts.push(pos); continue; }
+    const beforeWide = txt.substring(Math.max(0, pos - 15), pos);
+    if (/\band\s+$/i.test(beforeWide)) continue;
+    if (/,\s*$/.test(beforeWide)) continue;
+    const before5 = txt.substring(Math.max(0, pos - 5), pos);
+    if (/[\d)\]\.]\s*$/.test(before5)) {
+      const slice = txt.substring(pos, pos + 500);
+      if (/\b(?:1[89]|20)\d{2}\b/.test(slice)) {
+        starts.push(pos);
+      }
+    }
+  }
+
+  // Pattern 6: OSCOLA org-form unquoted book/report — "OrgName, Title (Publisher Year)"
+  // Used by Europol, FATF, Transparency International, Chainalysis, TRM Labs, FTX Trading
+  // Ltd, etc. The lookahead demands a "(Capital-or-Digit...YYYY)" paren within ~250 chars
+  // AND requires the title region to contain no commas (avoids journal-name tails like
+  // "Crime, Law and Social Change 1 [next ref...]" where the next ref's author has a comma).
+  // Title can start with a capital letter OR a year/number (e.g. "2026 Crypto Crime Report").
+  const oscolaOrgBookRe = new RegExp(
+    OSCOLA_ORG_CORE + ',\\s+(?:[A-Z\\u00C0-\\u024F][A-Za-z\\u00C0-\\u024F]|\\d{2})(?=[^(),]{3,250}\\([A-Z\\u00C0-\\u024F\\d][^)]*\\b(?:1[89]|20)\\d{2}[a-z]?\\))',
+    'g'
+  );
+  while ((m = oscolaOrgBookRe.exec(txt)) !== null) {
+    const pos = m.index;
+    if (starts.includes(pos)) continue;
+    if (pos === 0) { starts.push(pos); continue; }
+    const beforeWide = txt.substring(Math.max(0, pos - 15), pos);
+    if (/\band\s+$/i.test(beforeWide)) continue;
+    if (/,\s*$/.test(beforeWide)) continue;
+    const before5 = txt.substring(Math.max(0, pos - 5), pos);
+    // Must be preceded by a strong boundary (closing of prev ref)
+    if (/[\d)\]\.]\s*$/.test(before5)) {
+      starts.push(pos);
+    }
+  }
+
+  starts.sort((a, b) => a - b);
+  // Remove starts that are too close (< 30 chars apart — likely co-authors, not separate refs)
+  const filtered = [starts[0]];
+  for (let i = 1; i < starts.length; i++) {
+    if (starts[i] - filtered[filtered.length - 1] >= 30) {
+      filtered.push(starts[i]);
+    }
+  }
+
+  if (filtered.length < 2) return [txt].filter(r => r.trim().length > 15);
+
+  const refs = [];
+  for (let i = 0; i < filtered.length; i++) {
+    const end = i < filtered.length - 1 ? filtered[i + 1] : txt.length;
+    const ref = txt.substring(filtered[i], end).trim();
+    if (ref.length > 15) refs.push(ref);
+  }
+  return refs;
+}
+
+function parseRef(ref) {
+  // Rejoin hyphenated line breaks: "Conse-\nquences" → "Consequences"
+  // Only when both sides are lowercase (avoids joining real hyphens like "INFRA-M")
+  ref = ref.replace(/([a-z])-\s+([a-z])/g, '$1$2');
+
+  const r = { raw: ref, doi: null, arxivId: null, year: null, title: '', authors: '', searchQuery: '' };
+
+  // Extract DOI
+  const doiM = ref.match(/(?:https?:\/\/doi\.org\/|doi:\s*)?10\.\d{4,9}\/[^\s,;}\]]+/i);
+  if (doiM) {
+    r.doi = doiM[0].replace(/^https?:\/\/doi\.org\//i, '').replace(/^doi:\s*/i, '').replace(/[.)]+$/, '')
+      .replace(/[\u2013\u2014]/g, '-'); // Normalize en-dash/em-dash to hyphen (common PDF copy-paste issue)
+  }
+
+  // Extract arXiv ID — new format NNNN.NNNNN(vN) or old format subject-class/NNNNNNN
+  // Patterns: "arxiv.org/abs/2301.12345", "arxiv.org/pdf/2301.12345v2", "arXiv:2301.12345", "arXiv:cs.CL/0506001"
+  const arxivUrlM = ref.match(/arxiv\.org\/(?:abs|pdf)\/((?:\d{4}\.\d{4,5}|[a-z\-]+(?:\.[A-Z]{2})?\/\d{7})(?:v\d+)?)/i);
+  if (arxivUrlM) {
+    r.arxivId = arxivUrlM[1].replace(/v\d+$/, '').replace(/\.pdf$/i, '');
+  } else {
+    const arxivBareM = ref.match(/arXiv[:\s]+((?:\d{4}\.\d{4,5}|[a-z\-]+(?:\.[A-Z]{2})?\/\d{7})(?:v\d+)?)/i);
+    if (arxivBareM) {
+      r.arxivId = arxivBareM[1].replace(/v\d+$/, '');
+    }
+  }
+
+  // Extract year
+  const yearM = ref.match(/[\(,]\s*(\d{4})[a-z]?\s*[\).,:]/);
+  if (yearM) r.year = yearM[1];
+  // Fallback year: bare year like "Publisher 2016." or "INFRA-M 2016)" — no preceding comma/paren
+  // Must be preceded by a letter/closing-paren (not a digit, to avoid matching page numbers)
+  if (!r.year) {
+    const yearFb = ref.match(/[A-Za-z\u00C0-\u024F)]\s+((?:19|20)\d{2})\s*[.),:;\s]/);
+    if (yearFb) r.year = yearFb[1];
+  }
+  // Chicago author-date: "Author, I. YYYY. Title..." — period directly between author-initial and year
+  // This handles "Chen, C., Huang, J. 2021. Domain generalization..." style references
+  if (!r.year) {
+    const yearCh = ref.match(/[A-Za-z\u00C0-\u024F]\.\s+((?:19|20)\d{2})\s*\.\s+[A-Z\u00C0-\u024F]/);
+    if (yearCh) r.year = yearCh[1];
+  }
+
+  // OSCOLA citation style: extract authors, title, year
+  // Articles:  "Author, 'Title' (Year) Vol Journal Page"
+  // Books:     "Author, Title (Publisher Year)" or "Author, Title (edn, Publisher Year)"
+  // Chapters:  "Author, 'Title' in Editor (ed), Book (Publisher Year)"
+  // Web:       "Author, 'Title' (Site, Date) URL accessed Date"
+  // Also handles organizational authors: "Europol, ...", "DOJ, '...'", "Financial Action Task Force, ..."
+  let _oscolaAuthMatch = null;
+  if (OSCOLA_AUTHOR_RE.test(ref)) {
+    _oscolaAuthMatch = ref.match(OSCOLA_AUTHOR_RE);
+  } else if (OSCOLA_ORG_RE.test(ref) && looksLikeOscolaEntry(ref)) {
+    // For org form, we need to find where the org name ends (before ", " followed by title)
+    // Use the ORG core + optional subunit, followed by ",\s" — the terminal before-title marker.
+    const orgEndRe = new RegExp('^' + OSCOLA_ORG_CORE + OSCOLA_ORG_SUB + ',\\s');
+    _oscolaAuthMatch = ref.match(orgEndRe);
+  }
+  if (_oscolaAuthMatch) {
+    const authMatch = _oscolaAuthMatch;
+    const authEnd = authMatch[0].length;
+    const oscolaAuthors = authMatch[0].replace(/,\s*$/, '').trim();
+    const afterAuth = ref.substring(authEnd);
+
+    // OSCOLA authors are always cleaner than the generic "substring before year" extraction,
+    // which for OSCOLA articles picks up the opening quote and part of the title.
+    // Override unconditionally when we have an OSCOLA-shaped author list.
+    r.authors = oscolaAuthors;
+
+    // Article/chapter title: single-quoted (straight ' or curly \u2018 / \u2019)
+    // Need to match up to the matching closing quote. Allow apostrophes inside by requiring
+    // the closing quote to be followed by space+( or space+in or end of quoted segment.
+    let osTitle = '';
+    const qTitleM = afterAuth.match(/^['\u2018\u2019]([\s\S]{5,300}?)['\u2018\u2019](?=\s*(?:\(|in\s+[A-Z\d]|$))/);
+    if (qTitleM) {
+      osTitle = qTitleM[1].trim();
+    }
+    // Book title: unquoted, from start of afterAuth up to " (" (publisher paren)
+    if (!osTitle) {
+      const bookM = afterAuth.match(/^([A-Z\u00C0-\u024F][^(]{5,250}?)\s+\(/);
+      if (bookM) {
+        const candidate = bookM[1].trim().replace(/[,.\s]+$/, '');
+        // Reject if it still looks like an author list continuation or contains "ed" markers
+        if (candidate.length >= 6 && !/\s(?:and|et al)\s[A-Z]{1,4}\s*$/.test(candidate)) {
+          osTitle = candidate;
+        }
+      }
+    }
+
+    if (osTitle && (!r.title || r.title.length < 10)) {
+      r.title = osTitle;
+    }
+
+    // OSCOLA year: first (YYYY) anywhere — either bare "(1968)" or "(Publisher Year)"
+    if (!r.year) {
+      const osYearM = afterAuth.match(/\((?:[^)]*?\s)?((?:1[89]|20)\d{2})[a-z]?\)/);
+      if (osYearM) r.year = osYearM[1];
+    }
+
+    // OSCOLA journal: for articles "(Year) Vol Journal Page"
+    // Pattern: `(YYYY) \d+ ([^,]+?) \d+`
+    if (!r.journal && r.title) {
+      const osJM = afterAuth.match(/\((?:1[89]|20)\d{2}\)\s+\d+\s+([A-Z][A-Za-z\u00C0-\u024F\s&'\-]+?)\s+\d/);
+      if (osJM) {
+        r.journal = osJM[1].trim().replace(/[.,]+$/, '');
+      }
+    }
+
+    r._oscolaFormat = true;
+  }
+
+  // OSCOLA unquoted book form: "Author-or-Org, Title (Publisher Year)"
+  // Runs for organizational authors (Europol, FATF, TI) where OSCOLA_AUTHOR_RE doesn't
+  // match. Scans for the LAST "(Publisher YYYY)" shaped paren in the ref so we don't get
+  // tripped up by years that appear inside the title itself (e.g. "... Report 2020 (TI 2020)").
+  if (!r.title) {
+    const parenRe = /\(([^()]*?\b(?:1[89]|20)\d{2}[a-z]?)\)/g;
+    let lastPub = null;
+    let m;
+    while ((m = parenRe.exec(ref)) !== null) {
+      const content = m[1];
+      // Publisher paren must start with a capital letter OR a digit (date form: "8 July 2024")
+      // and have publisher text before the year.
+      if (/^[A-Z\u00C0-\u024F\d]/.test(content) && content.length > 6) {
+        lastPub = { index: m.index, content };
+      }
+    }
+    if (lastPub && lastPub.index > 10) {
+      const beforePublisher = ref.substring(0, lastPub.index).trim().replace(/[,.\s]+$/, '');
+      const commaIdx = beforePublisher.indexOf(', ');
+      if (commaIdx > 2 && commaIdx < beforePublisher.length - 5) {
+        const candidateAuthors = beforePublisher.substring(0, commaIdx).trim();
+        const candidateTitle = beforePublisher.substring(commaIdx + 2).trim();
+        // Title must start with a real word (capital + letter) OR a year/number (e.g. "2026 Crypto Crime Report")
+        const titleStartOk = /^[A-Z\u00C0-\u024F][A-Za-z\u00C0-\u024F]/.test(candidateTitle) ||
+                             /^\d{2,4}\s+[A-Z]/.test(candidateTitle);
+        if (candidateTitle.length >= 6 && titleStartOk) {
+          // Reject if candidate title contains APA-style author separators like "Smith, J." or "J., &"
+          if (!/[,&]\s+[A-Z]\./.test(candidateTitle) && !/^[A-Z]\.,/.test(candidateTitle)) {
+            r.title = candidateTitle.replace(/[.,]+$/, '');
+            if (!r.authors) r.authors = candidateAuthors;
+            // Override r.year with the publisher-paren year — that's the canonical pub date
+            const yearInParen = lastPub.content.match(/((?:1[89]|20)\d{2})/);
+            if (yearInParen) r.year = yearInParen[1];
+            r._oscolaFormat = true;
+          }
+        }
+      }
+    }
+  }
+
+  // Extract title — try Chicago/MLA first (title in quotes), then APA (title after year)
+  // Chicago/MLA: "Title" or \u201CTitle\u201D (curly quotes)
+  const quotedTitle = ref.match(/[\u201C\u201E"]((?:[^"\u201D\u201C]){10,})[\u201D"]/);
+  if (quotedTitle) {
+    r.title = quotedTitle[1].trim().replace(/\.$/, '');
+  }
+  // Harvard / Chicago variant with single quotes around the title:
+  //   "Passas, N. (1999), 'Globalization, Criminogenic Asymmetries and Economic Crime', European Journal ..."
+  //   "Spence, M. (1973), 'Job Market Signaling', Quarterly Journal of Economics, 87/3: 355\u2013374"
+  //   "Eckstein, H. (1975), 'Case Study and Theory in Political Science', in F.I. Greenstein ..."
+  // The opening ' must be preceded by `, ` or `) ` (post-author / post-year position) and the
+  // closing ' must be followed by `,` or `.` (pre-journal / pre-in / pre-end position). This
+  // rejects contraction apostrophes inside words like `FBI's`. We use a lazy `[\s\S]` body so
+  // internal apostrophes (e.g. "Author's Note") are skipped correctly — the lookahead anchors
+  // the close to a `,`/`.` which is almost never directly after an intra-word apostrophe.
+  if (!r.title) {
+    const sqTitle = ref.match(/(?:^|[\s,)])['\u2018]([A-Z\u00C0-\u024F][\s\S]{5,300}?)['\u2019](?=\s*[,.])/);
+    if (sqTitle) {
+      r.title = sqTitle[1].trim().replace(/[.,]+$/, '');
+    }
+  }
+  // APA/Harvard fallback: title after year
+  if (!r.title && yearM) {
+    let idx = ref.indexOf(yearM[0]) + yearM[0].length;
+    // Skip past APA date components like "(2022, February 10)." or "(2023a)."
+    // Only match SHORT date closings (max 30 chars) to avoid skipping past (edsair...) or (SSRN...) parens
+    const afterYear = ref.substring(idx);
+    const dateClose = afterYear.match(/^[^)]{0,30}\)\.\s*/);
+    if (dateClose) idx += dateClose[0].length;
+    // Also strip a leading `,` — Harvard book refs put `), ` between year and title
+    // e.g. "Yin, R.K. (2018), Case Study Research..."
+    const after = ref.substring(idx).replace(/^\s*[.),]+\s*/, '').replace(/^\s*/, '');
+    // Skip if text after year is just a URL or very short (Chicago puts year AFTER title)
+    if (!/^\s*\.?\s*(https?:\/\/|doi[:.])/i.test(after) && after.replace(/^\.\s*/, '').length > 15) {
+      // Match title ending with . or ? or ! followed by space+Capital (journal/publisher start)
+      // Use lazy match but require at least 15 chars to avoid splitting on abbreviations like "U.S. "
+      const tm = after.match(/^(.{15,}?[.?!])\s+[A-Z]/) || after.match(/^(.+?)(?:\.\s*$)/);
+      if (tm) {
+        r.title = tm[1].replace(/^['"\u201C\u201D\u2018\u2019]+|['"\u201C\u201D\u2018\u2019]+$/g, '').replace(/\.$/, '').trim();
+        // Multi-part title fix: if title ends with ? or ! the real title may continue
+        // e.g. "Snakes or Ladders? Job Quality Assessment... in Hungarian Electronics. Central..."
+        // Try extending past the ? or ! to the next ". [A-Z]" that precedes a journal/volume pattern
+        if (/[?!]$/.test(r.title)) {
+          const remainder = after.substring(tm[0].length);
+          // Look for ". Capital" in remainder where what follows looks like journal (has volume/issue or is italic-style)
+          const extMatch = remainder.match(/^(.{10,}?)\.\s+(?=[A-Z].*?(?:\d+\s*\(|\d+,\s*\d|https?:\/\/|doi[:.]))/);
+          if (extMatch) {
+            r.title = r.title + ' ' + extMatch[1].trim();
+          }
+        }
+      }
+      else r.title = after.split('.')[0].replace(/^['"\u201C\u201D]+|['"\u201C\u201D]+$/g, '').trim();
+    }
+  }
+  // Book title fallback: for refs without quotes and without APA year pattern
+  // Try extracting between author period and publisher/year: "Author. Title. Publisher/Year/URL"
+  if (!r.title) {
+    // Match: "Author(s). Title. " followed by uppercase, digit(year), http, or end
+    const firstSentences = ref.match(/^[^.]+\.\s+(.+?)\.(?:\s+[A-Z]|\s+\d|\s+https?:\/\/|$)/);
+    if (firstSentences && firstSentences[1].length > 10) {
+      r.title = firstSentences[1].replace(/^['"\u201C\u201D]+|['"\u201C\u201D]+$/g, '').trim();
+    }
+  }
+
+  // Chicago author-date title fallback: "Authors. YYYY. Title. Rest..."
+  // Runs whenever r.year is set but title extraction has failed so far. The title starts
+  // after ". YYYY. " and ends at the next sentence period that precedes a URL, a publisher,
+  // or end of string. This catches references like:
+  //   "Chen, C., Huang, J. 2021. Domain generalization for ... https://arxiv.org/..."
+  if (!r.title && r.year) {
+    const yearSep = ref.match(new RegExp('\\.\\s+' + r.year + '[a-z]?\\.\\s+([\\s\\S]+)$'));
+    if (yearSep) {
+      const rest = yearSep[1];
+      // Title = up to the first ". " that precedes a URL, or first ". [A-Z]" followed by
+      // journal/publisher-like text, or end of string
+      const tm = rest.match(/^(.{10,}?)\.\s+(?:https?:\/\/|doi[:.]|[A-Z\u00C0-\u024F])/)
+              || rest.match(/^(.{10,}?)\.\s*$/)
+              || rest.match(/^(.{10,}?)(?=\s+https?:\/\/)/);
+      if (tm && tm[1].length >= 10) {
+        r.title = tm[1].replace(/^['"\u201C\u201D]+|['"\u201C\u201D.]+$/g, '').trim();
+      }
+    }
+  }
+
+  // Post-process title: strip trailing parenthetical identifiers
+  // e.g. "(SSRN Scholarly Paper No. 4106905)" or "(Working Paper No. 123)" or "(Report No. 45)"
+  if (r.title) {
+    r.title = r.title
+      .replace(/\s*\((?:SSRN|Working|Discussion|Research|Technical|Report|Paper|No\.)[\s\S]*?\)\s*$/, '')
+      .replace(/\s*\((?:arXiv|preprint|draft|manuscript|mimeo)[\s\S]*?\)\s*$/i, '')
+      .replace(/\s*\(\d+\w*\s+ed\.?\)\.?\s*$/, '')  // Strip edition markers like "(3rd ed.)" "(2nd ed.)"
+      // Strip Harvard-style edition suffixes: ", 6th edn.", ", 2nd ed.", ", 3rd edition"
+      .replace(/,?\s*\d+(?:st|nd|rd|th)\s+ed(?:n|ition)?\.?\s*$/i, '')
+      .replace(/\s*\((?:Rev\.|Revised|Updated|Expanded|Enlarged)\s+ed\.?\)\.?\s*$/i, '')
+      .replace(/\s*\([\w\s]*(?:anniversary|commemorative|special|abridged|unabridged|reprint)\s+ed\.?\)\.?\s*$/i, '')
+      // Strip "— City: Publisher" or ". City: Publisher" patterns (Russian/legal citations)
+      .replace(/\s*[\u2014\u2013—–]\s*[A-Z\u0410-\u042F][a-z\u0430-\u044F]+(?:\s+[A-Z\u0410-\u042F][a-z\u0430-\u044F]+)?:\s*[A-Z\u0410-\u042F].+$/, '')
+      // Strip trailing unclosed parenthetical with publisher name: "(PublisherName" (no closing paren)
+      .replace(/\s*\([A-Z][a-z]+$/, '')
+      .trim();
+    // Detect garbage titles that are actually volume/journal/page metadata
+    if (/^\d+\s*\(\d+\)/.test(r.title) ||                                    // "421(6918) Nature..."
+        /^\d{1,3}\s+[A-Z]/.test(r.title) ||                                   // "37 Annual Review..."
+        /^(?:Vol|pp|No|P|C|S)\.\s*\d/i.test(r.title)) {                       // "Vol. 427...", "pp. 9..."
+      r.title = '';  // Clear so non-APA/Russian extraction can try
+    }
+    // Detect garbage titles that are actually author names, e.g. "A., Galinovskaya E"
+    if (/^[A-Z][.,]\s/.test(r.title) || /^[A-Z]\.,\s*[A-Z][a-z]+/.test(r.title)) {
+      r.title = '';
+    }
+  }
+
+  // Extract authors (before year)
+  // Skip for OSCOLA format — OSCOLA author list was already extracted cleanly above,
+  // and the "before first (YYYY)" rule would pick up the opening title quote.
+  if (yearM && !r._oscolaFormat) {
+    r.authors = ref.substring(0, ref.indexOf(yearM[0])).replace(/[,&\s]+$/, '').trim();
+  }
+  // Chicago author-date: authors are before ". YYYY." — e.g. "Chen, C., Huang, J. 2021. ..."
+  if (!r.authors && r.year) {
+    const chAuth = ref.match(new RegExp('^([\\s\\S]+?)\\.\\s+' + r.year + '[a-z]?\\.\\s'));
+    if (chAuth) {
+      r.authors = chAuth[1].replace(/[,&\s]+$/, '').trim() + '.';
+    }
+  }
+
+  // Helper: split "Surname I., Surname I. Title text..." into authors and title
+  // Uses transition from author initials (single capital letter + period) to title words
+  // Skips candidates where next text looks like another author name (Surname Initial.)
+  function splitAuthorsTitle(text, minTitleLen) {
+    const splitRe = /([A-Z\u00C0-\u024F]\.(?:,\s*|\s+))((?:A|An|The|On|In|Of|Is|Do|How|What|Why|New|Re)\s+[A-Z\u00C0-\u024F]|[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]{2,})/;
+    let bestSplitIdx = -1;
+    let searchFrom = 0;
+    while (searchFrom < text.length) {
+      const sub = text.substring(searchFrom);
+      const sm = sub.match(splitRe);
+      if (!sm) break;
+      const candidateIdx = searchFrom + sm.index + sm[1].length;
+      const potentialTitle = text.substring(candidateIdx);
+      if (potentialTitle.length >= minTitleLen && /\s/.test(potentialTitle) && candidateIdx > 5) {
+        // Skip if what follows looks like another author name: "Surname I." pattern
+        if (/^[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+\s+[A-Z]\./.test(potentialTitle.substring(0, 30))) {
+          searchFrom = searchFrom + sm.index + sm[1].length + 1;
+          continue;
+        }
+        const beforePart = text.substring(0, candidateIdx);
+        if (/[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+[\s,]+[A-Z]\./.test(beforePart)) {
+          bestSplitIdx = candidateIdx;
+          break; // Take first valid split that's not another author name
+        }
+      }
+      searchFrom = searchFrom + sm.index + sm[1].length + 1;
+    }
+    return bestSplitIdx;
+  }
+
+  // Handle non-APA format: "Surname I., Surname I. Title Words (Year). Volume(Issue) Journal Pages"
+  if ((!r.title || r.title.length < 10) && yearM && r.authors && r.authors.length > 30) {
+    const splitIdx = splitAuthorsTitle(r.authors, 15);
+    if (splitIdx > 0) {
+      r.title = r.authors.substring(splitIdx).trim().replace(/\.$/, '');
+      r.authors = r.authors.substring(0, splitIdx).replace(/[,&\s]+$/, '').trim();
+      r._nonApaFormat = true;
+    }
+  }
+
+  // Handle "et al." in authors — title follows after "et al."
+  // e.g. "Thomas C.D. et al. Extinction risk from climate change. Nature"
+  if ((!r.title || r.title.length < 10) && r.authors && /\bet al\.?\b/i.test(r.authors)) {
+    const etAlMatch = r.authors.match(/^(.+?\bet al\.?)\s*\.?\s+(.+)$/i);
+    if (etAlMatch && etAlMatch[2].length > 10) {
+      r.authors = etAlMatch[1].trim();
+      let titleText = etAlMatch[2].trim();
+      // Title may include journal name at end: "Title. Journal" → split and extract journal
+      const lastDotSpace = titleText.lastIndexOf('. ');
+      if (lastDotSpace > 5) {
+        const possibleJournal = titleText.substring(lastDotSpace + 2).trim();
+        // Accept as journal if short and capitalized (not a title continuation)
+        if (possibleJournal.length < 60 && possibleJournal.length > 2 && /^[A-Z]/.test(possibleJournal)) {
+          if (!r.journal) r.journal = possibleJournal.replace(/[.,]+$/, '');
+          titleText = titleText.substring(0, lastDotSpace).trim();
+        }
+      }
+      r.title = titleText.replace(/\.$/, '').trim();
+    }
+  }
+
+  // Handle "and others" in authors when yearM exists (similar to et al.)
+  if ((!r.title || r.title.length < 10) && yearM && r.authors && /\band others\b/i.test(r.authors)) {
+    const othersMatch = r.authors.match(/^(.+?\band others\b\.?)\s+(.+)$/i);
+    if (othersMatch && othersMatch[2].length > 10) {
+      r.authors = othersMatch[1].trim();
+      let titleText = othersMatch[2].trim();
+      const lastDotSpace = titleText.lastIndexOf('. ');
+      if (lastDotSpace > 5) {
+        const possibleJournal = titleText.substring(lastDotSpace + 2).trim();
+        if (possibleJournal.length < 60 && possibleJournal.length > 2 && /^[A-Z]/.test(possibleJournal)) {
+          if (!r.journal) r.journal = possibleJournal.replace(/[.,]+$/, '');
+          titleText = titleText.substring(0, lastDotSpace).trim();
+        }
+      }
+      r.title = titleText.replace(/\.$/, '').trim();
+    }
+  }
+
+  // For non-APA format, try to extract journal from after (Year): "421(6918) Nature 37–42"
+  if (r._nonApaFormat && yearM && !r.journal) {
+    const afterYear = ref.substring(ref.indexOf(yearM[0]) + yearM[0].length).replace(/^\s*[.)]\s*/, '').trim();
+    // Pattern 1: "421(6918) Nature 37–42" → volume before journal
+    const jm1 = afterYear.match(/^\d+\s*\(\d+\)\s+([A-Z][A-Za-z\s&]+?)[\s,]+\d/);
+    if (jm1) {
+      r.journal = jm1[1].trim();
+    } else {
+      // Pattern 2: "Nature, 421(6918), 37–42" or "Nature 421, 37-42"
+      const jm2 = afterYear.match(/^([A-Z][A-Za-z\s&]+?)[\s,]+\d/);
+      if (jm2 && jm2[1].length > 2) {
+        r.journal = jm2[1].trim().replace(/,$/, '');
+      }
+    }
+  }
+
+  // Russian/legal citation format: "Surname I. I., Surname I. Title. City: Publisher Year. pp. X"
+  // When yearM is null (bare year) and title/authors still empty
+  if ((!r.title || r.title.length < 10) && !yearM && r.year) {
+    const yearIdx = ref.indexOf(r.year);
+    const beforeYear = ref.substring(0, yearIdx).trim();
+
+    // Helper: strip publisher/city info from end of title text
+    function stripPublisher(txt) {
+      // ". City: Publisher" or ". Publisher Press/University" or ", ed by..."
+      const pubRe = /^(.{10,}?)(?:\.\s+(?:[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+\s*:\s*|[A-Z\u00C0-\u024F].*?(?:University|Press|Publishers?|Publishing|Verlag|Kiad\u00F3|INFRA|Springer|Routledge|Elsevier|Cambridge|Oxford|Harvard|MIT|Wiley))|,\s*ed\s+by\b)/i;
+      const m = txt.match(pubRe);
+      if (m) return m[1].trim();
+      const lastPeriod = txt.lastIndexOf('.');
+      if (lastPeriod > 10) {
+        const after = txt.substring(lastPeriod + 1).trim();
+        if (/^[A-Z].*?(?:Press|Publish|Verlag|University|Springer|Routledge|INFRA|Cambridge|Oxford)/i.test(after) ||
+            /^[A-Z][a-z]+:/.test(after)) {
+          return txt.substring(0, lastPeriod).trim();
+        }
+      }
+      return txt;
+    }
+
+    // Try "and others" pattern FIRST — most reliable signal for Russian format
+    if (/\band others\b/i.test(beforeYear)) {
+      const othersMatch = beforeYear.match(/^(.+?\band others\b\.?)\s+(.+)$/i);
+      if (othersMatch && othersMatch[2].length > 10) {
+        r.authors = othersMatch[1].trim();
+        r.title = stripPublisher(othersMatch[2].trim()).replace(/\.$/, '').trim();
+        r._nonApaFormat = true;
+      }
+    }
+    // Try Russian "и др."
+    if (!r.title && /\u0438\s+\u0434\u0440/i.test(beforeYear)) {
+      const othersMatch = beforeYear.match(/^(.+?\u0438\s+\u0434\u0440\.?)\s+(.+)$/i);
+      if (othersMatch && othersMatch[2].length > 10) {
+        r.authors = othersMatch[1].trim();
+        r.title = stripPublisher(othersMatch[2].trim()).replace(/\.$/, '').trim();
+        r._nonApaFormat = true;
+      }
+    }
+    // Then try initial-based author/title split
+    if (!r.title || r.title.length < 10) {
+      const splitIdx = splitAuthorsTitle(beforeYear, 10);
+      if (splitIdx > 0) {
+        let titleText = beforeYear.substring(splitIdx).trim();
+        titleText = stripPublisher(titleText);
+        r.title = titleText.replace(/\.$/, '').trim();
+        r.authors = beforeYear.substring(0, splitIdx).replace(/[,&\s]+$/, '').trim();
+        r._nonApaFormat = true;
+      }
+    }
+  }
+
+  // Fix authors when title was found via book-title fallback but authors still contains the title
+  // e.g., authors="Bodansky D. The Art... Harvard" title="The Art..."
+  if (r.title && r.authors && r.authors.length > r.title.length && r.authors.includes(r.title)) {
+    const titleIdx = r.authors.indexOf(r.title);
+    if (titleIdx > 3) {
+      r.authors = r.authors.substring(0, titleIdx).replace(/[,&.\s]+$/, '').trim();
+    }
+  }
+
+  // Russian citation format with // separator: "Author. Title // Journal. Year. Vol. pp."
+  // The // clearly separates article title from journal info
+  if (ref.includes(' // ')) {
+    const dsi = ref.indexOf(' // ');
+    const beforeSlash = ref.substring(0, dsi).trim();
+    const afterSlash = ref.substring(dsi + 3).trim();
+    // Extract year from after // if not found
+    if (!r.year) {
+      const ym = afterSlash.match(/\b((?:19|20)\d{2})\b/);
+      if (ym) r.year = ym[1];
+    }
+    // Extract journal from after //: first part until year/volume/number
+    if (!r.journal) {
+      const jm = afterSlash.match(/^(.+?)(?:[\s.]+(?:19|20)\d{2}|[\s.]+Vol|[\s.]+No\.?\s*\d|[\s.]+\d{4}\b|\.\s+\d{1,3}[\s.(])/i);
+      if (jm) r.journal = jm[1].trim().replace(/[.,]+$/, '');
+      else r.journal = afterSlash.replace(/[.,\d\s]+$/, '').trim();
+    }
+    // If current title contains " // ", it's clearly wrong — it includes the journal separator
+    // Clear it so we can extract properly from before //
+    if (r.title && r.title.includes(' // ')) {
+      r.title = '';
+    }
+    // Extract title from before //
+    if (!r.title || r.title.length < 10) {
+      const si = splitAuthorsTitle(beforeSlash, 5);
+      if (si > 0) {
+        r.title = beforeSlash.substring(si).trim().replace(/\.$/, '');
+        r.authors = beforeSlash.substring(0, si).replace(/[,&.\s]+$/, '').trim();
+      } else {
+        // Fallback: if no initial-based split found, try simple first ". Sentence" split
+        // e.g. "Craig R. Stationarity is dead" → author="Craig R.", title="Stationarity is dead"
+        const simpleSplit = beforeSlash.match(/^(.+?[A-Z]\.)\s+([A-Z][a-z].{5,})$/);
+        if (simpleSplit) {
+          r.authors = simpleSplit[1].trim();
+          r.title = simpleSplit[2].trim().replace(/\.$/, '');
+        }
+      }
+    }
+  }
+
+  // Detect book chapter or conference proceedings (has "In ... (Ed" or "In Proceedings" or "In ... Conference")
+  r.isBookChapter = /\bIn\s+[A-Z].*?\(Ed/.test(ref) || /\bIn\s+Proceedings\b/i.test(ref) || /\bIn\s+[A-Z].*?Conference\b/.test(ref);
+
+  // Extract journal name (heuristic: after title, before volume/issue/pages/DOI markers)
+  // Skip for book chapters — the "journal" field in CrossRef will be the book title, not comparable
+  if (!r.journal && r.title && !r.isBookChapter) {
+    const titleIdx = ref.indexOf(r.title);
+    if (titleIdx >= 0) {
+      let afterTitle = ref.substring(titleIdx + r.title.length);
+      // Title may or may not include its trailing period. Normalise by trimming leading
+      // whitespace / periods / commas / closing-quotes so afterClean starts with the journal
+      // name (if any). Closing quotes are stripped because single-quoted-title Harvard variants
+      // leave a stray `'` at the start of the post-title text.
+      const afterClean = afterTitle.replace(/^[\s.,'\u2018\u2019\u201C\u201D]+/, '');
+      // Journal name terminates at Vol/No/pp/volume(issue)/year/dash/semicolon/DOI, a comma
+      // followed by a digit (vol num), or a period followed by a digit. This avoids picking
+      // up "Vol" itself as the journal when the title-period was absorbed into the title.
+      // Terminators require a digit / word boundary so that "Annual Review..." stops at
+      // "Vol. 5" but NOT inside words like "volution" or "Notes". "Vol", "No", "pp" must
+      // be followed by optional period and a digit; year/volume-issue patterns are plain.
+      const jm = afterClean.match(
+        /^([A-Z][A-Za-z\u00C0-\u024F\s&:'\-,()]*?[A-Za-z\u00C0-\u024F)])(?=\s*[,.]?\s*(?:[Vv]ol\.?\s*\d|[Nn]o\.?\s*\d|pp?\.\s*\d|\d+\s*\(\d+\)|(?:19|20)\d{2}\b|[\u2013\u2014\u2015]|\sDOI\b|doi[:.])|[,.]\s*\d|\s*$)/
+      );
+      if (jm) {
+        let j = jm[1].trim().replace(/[.,;:]+$/, '').trim();
+        // Reject obvious false positives — short generic markers that leaked through
+        if (!/^(Vol|No|pp|vol|no|Issue|issue|P)\.?$/.test(j) && j.length >= 3) {
+          r.journal = j;
+        }
+      }
+      // Fallback to legacy "period + Capital word" extractor if no match
+      if (!r.journal) {
+        const legacy = afterTitle.match(/\.\s+([A-Z][^,\d]*?)(?:,\s*\d|\.\s*\d|\.\s*https?:\/\/|\.\s*$)/);
+        if (legacy) {
+          const j = legacy[1].trim().replace(/\.$/, '');
+          if (!/^(Vol|No|pp|vol|no|Issue|issue|P)\.?$/.test(j) && j.length >= 3) {
+            r.journal = j;
+          }
+        }
+      }
+    }
+  }
+
+  // Search query: full text without URLs/DOIs, normalize dashes for better API matching
+  r.searchQuery = ref.replace(/https?:\/\/\S+/g, '').replace(/doi:\s*\S+/gi, '')
+    .replace(/[\u2013\u2014]/g, '-')  // en-dash/em-dash → hyphen
+    .trim().substring(0, 200);
+
+  return r;
+}
+
+function shortLabel(parsed) {
+  const auth = parsed.authors ? parsed.authors.split(',')[0].split('&')[0].trim() : '';
+  const yr = parsed.year || '';
+  const t = parsed.title ? parsed.title.substring(0, 40) : '';
+  if (auth && yr) return `${auth} (${yr})`;
+  if (t) return t + (t.length >= 40 ? '...' : '');
+  return parsed.raw.substring(0, 50) + '...';
+}
+
+/* ============================================
+   STRING MATCHING
+   ============================================ */
+function normalize(s) {
+  if (!s) return '';
+  return s.toLowerCase()
+    .replace(/[\u2013\u2014\u2010\u2011]/g, '-')
+    .replace(/[\u201C\u201D\u201E\u201F\u2018\u2019\u201A\u201B]/g, '')
+    // Normalize Turkish special chars: ı→i, İ→i, ğ→g, ş→s, ç→c, ö→o, ü→u
+    .replace(/\u0131/g, 'i')  // ı → i
+    .replace(/\u011F/g, 'g')  // ğ → g
+    .replace(/\u015F/g, 's')  // ş → s
+    .replace(/\u00E7/g, 'c')  // ç → c
+    .replace(/\u00F6/g, 'o')  // ö → o
+    .replace(/\u00FC/g, 'u')  // ü → u
+    .replace(/[^a-z0-9\s\u00C0-\u024F-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function stripBrackets(s) {
+  // Remove bracketed translations like [English translation] or (translated title)
+  return s.replace(/\s*\[[^\]]*\]\s*/g, ' ').trim();
+}
+
+function calcJaccard(na, nb) {
+  const wordsA = new Set(na.split(' ').filter(w => w.length > 2));
+  const wordsB = new Set(nb.split(' ').filter(w => w.length > 2));
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+  // Fuzzy word match: two words match if they're exact, or one is a prefix of the other (min 4 chars),
+  // or they share 80%+ characters (handles "aesthetic"/"aesthetics", "construction"/"constructing")
+  function fuzzyWordMatch(w1, w2) {
+    if (w1 === w2) return true;
+    if (w1.length >= 4 && w2.length >= 4) {
+      const minLen = Math.min(w1.length, w2.length);
+      const maxLen = Math.max(w1.length, w2.length);
+      // Exact prefix match (shorter word is prefix of longer)
+      if (w1.startsWith(w2.substring(0, minLen)) || w2.startsWith(w1.substring(0, minLen))) {
+        if (minLen / maxLen >= 0.75) return true;
+      }
+      // Common prefix match: words share a long common prefix (same stem)
+      // e.g. "definition"/"defining" share "defin" (5 chars), "migration"/"migrants" share "migra" (5 chars)
+      let commonPrefix = 0;
+      for (let i = 0; i < minLen; i++) {
+        if (w1[i] === w2[i]) commonPrefix++;
+        else break;
+      }
+      if (commonPrefix >= 5 && commonPrefix / minLen >= 0.6) return true;
+    }
+    return false;
+  }
+  // Count fuzzy intersections
+  const matchedB = new Set();
+  let intersection = 0;
+  for (const wa of wordsA) {
+    if (wordsB.has(wa)) { intersection++; matchedB.add(wa); continue; }
+    for (const wb of wordsB) {
+      if (!matchedB.has(wb) && fuzzyWordMatch(wa, wb)) { intersection++; matchedB.add(wb); break; }
+    }
+  }
+  const union = wordsA.size + wordsB.size - intersection;
+  const jaccard = intersection / union;
+
+  // Substring containment check: if one normalized title is literally a substring of the other
+  // (e.g. "competitive authoritarianism" inside "competitive authoritarianism hybrid regimes after the cold war")
+  // This handles main title vs title+subtitle from CrossRef, but avoids false matches where
+  // a short title like "imagined communities" matches "imagined communities reconsidered" (a review)
+  if (na.length >= 10 && nb.length >= 10) {
+    const shorter = na.length <= nb.length ? na : nb;
+    const longer = na.length <= nb.length ? nb : na;
+    const shorterWords = shorter.split(' ').filter(w => w.length > 2).length;
+    // Only boost if: shorter title has 3+ significant words AND is at least 60% the length of the longer
+    if (longer.includes(shorter) && shorterWords >= 3 && shorter.length / longer.length >= 0.6) {
+      return Math.max(jaccard, 0.8);
+    }
+  }
+
+  return jaccard;
+}
+
+function titleSimilarity(a, b) {
+  if (!a || !b) return 0;
+  // Strip edition markers before comparison so "(30th anniversary ed.)" doesn't penalize
+  const stripEd = s => s
+    .replace(/\s*\([\w\s]*(?:ed|edition|anniversary|commemorative|special|abridged|unabridged|reprint)\.?\)\s*/gi, ' ')
+    .replace(/\s*\(\d+\w*\s+ed\.?\)\s*/gi, ' ')
+    .trim();
+  a = stripEd(a);
+  b = stripEd(b);
+  // Compare both with and without bracketed content, take the higher score
+  const na = normalize(a), nb = normalize(b);
+  if (na === nb) return 1;
+
+  const sim1 = calcJaccard(na, nb);
+
+  // Also try without brackets (handles [English translation] in non-English titles)
+  const naClean = normalize(stripBrackets(a));
+  const nbClean = normalize(stripBrackets(b));
+  const sim2 = calcJaccard(naClean, nbClean);
+
+  let best = Math.max(sim1, sim2);
+
+  // Subtitle-aware comparison: if one title has a subtitle (after : or .)
+  // and the other doesn't, compare main title parts only
+  // e.g. "White But Not Quite: Central Europe's Illiberal Revolt" vs "White but Not Quite"
+  // Must split on the ORIGINAL (pre-normalize) strings since normalize strips ':'
+  if (best < 0.7) {
+    const mainPartA = normalize((a || '').split(/\s*[:]\s/)[0]);
+    const mainPartB = normalize((b || '').split(/\s*[:]\s/)[0]);
+    if (mainPartA !== na || mainPartB !== nb) {
+      const mainSim = calcJaccard(mainPartA, mainPartB);
+      if (mainSim >= 0.8) best = Math.max(best, mainSim * 0.85);
+    }
+  }
+
+  return best;
+}
+
+// Format CrossRef author list ("Family, Given; Family, Given; ...") as an
+// APA-style citation fragment ("Family, G., Family, G., & Family, G.").
+// Used to surface the journal/CrossRef-indexed citation form as a warning
+// suggestion when the reference and CrossRef disagree on author name order.
+function formatCrossRefAuthorsAPA(doiAuthors, maxAuthors) {
+  if (!doiAuthors) return '';
+  const limit = maxAuthors || 6;
+  const parts = doiAuthors.split(';').map(s => s.trim()).filter(Boolean);
+  const total = parts.length;
+  const useParts = total > limit ? parts.slice(0, limit) : parts;
+  const formatted = useParts.map(p => {
+    if (p.includes(',')) {
+      const [family, given] = p.split(',').map(s => s.trim());
+      if (!given) return family;
+      const initials = given.split(/[\s\-]+/).filter(Boolean)
+        .map(w => w.charAt(0).toUpperCase() + '.').join(' ');
+      return family + ', ' + initials;
+    }
+    // No comma — treat last word as surname, rest as given names
+    const ws = p.split(/\s+/).filter(Boolean);
+    if (ws.length < 2) return p;
+    const family = ws[ws.length - 1];
+    const initials = ws.slice(0, -1).map(w => w.charAt(0).toUpperCase() + '.').join(' ');
+    return family + ', ' + initials;
+  });
+  if (formatted.length === 0) return '';
+  let out;
+  if (formatted.length === 1) out = formatted[0];
+  else if (formatted.length === 2) out = formatted[0] + ', & ' + formatted[1];
+  else out = formatted.slice(0, -1).join(', ') + ', & ' + formatted[formatted.length - 1];
+  if (total > limit) out += ', et al.';
+  return out;
+}
+
+function firstAuthorMatch(refAuthors, foundAuthors) {
+  if (!refAuthors || !foundAuthors) return null; // can't compare
+  // Normalize transliteration variants (Russian/Cyrillic names)
+  const normTranslit = s => s
+    .replace(/skiy\b/g, 'sky').replace(/skaia\b/g, 'skaya')
+    .replace(/iya\b/g, 'ia').replace(/iya\b/g, 'ia')
+    .replace(/yi\b/g, 'y').replace(/ii\b/g, 'y')
+    .replace(/yu\b/g, 'iu').replace(/ya\b/g, 'ia')
+    .replace(/kh/g, 'h').replace(/sh/g, 'sh')
+    .replace(/sch/g, 'sh').replace(/tch/g, 'ch')
+    .replace(/ov\b/g, 'ov').replace(/ev\b/g, 'ev');
+  // Stop-words that must never be counted as surname candidates. These bubble up from
+  // OSCOLA author lists ("and others", "et al"), from generic connectives, and from
+  // org-name noise. Without this filter, "He B and others" would yield {"and","others"}
+  // and match nothing — even though "He" IS the correct surname.
+  const STOP = new Set([
+    'and','others','et','al','the','for','with','from','van','von','de','di','la','le',
+    'der','den','des','du','da','do','del','della','jr','sr','ii','iii','iv','ed','eds'
+  ]);
+  // Extract surname candidates from the first author. Keep 2+ char words (so short
+  // surnames like "He", "Li", "Wu", "Yu", "Xu", "Ng", "Oh" are retained) but drop
+  // single letters (which are initials), stop-words, and pure-digit tokens.
+  const extractWords = s => {
+    const first = normalize(s).split(/[;&]/)[0].trim();
+    // Strip OSCOLA "and others" / "et al" tail before tokenizing
+    const cleaned = first.replace(/\s+(?:and\s+others|et\s+al\.?)\s*$/i, '');
+    return new Set(
+      cleaned.split(/[\s,]+/)
+        .map(w => w.replace(/\.$/, '')) // drop trailing period on initials like "J."
+        .filter(w => w.length >= 2 && !/^\d+$/.test(w) && !STOP.has(w))
+        .map(normTranslit)
+    );
+  };
+  const wordsA = extractWords(refAuthors);
+  const wordsB = extractWords(foundAuthors);
+  if (wordsA.size === 0 || wordsB.size === 0) return null;
+  // Check if there's any common word (surname) between the two name forms
+  const common = [...wordsA].filter(w => wordsB.has(w));
+  if (common.length > 0) return true;
+  // Fuzzy surname match: check if any pair of words are 80%+ similar
+  for (const wa of wordsA) {
+    for (const wb of wordsB) {
+      const minLen = Math.min(wa.length, wb.length);
+      const maxLen = Math.max(wa.length, wb.length);
+      if (minLen >= 4 && minLen / maxLen >= 0.75) {
+        if (wa.startsWith(wb.substring(0, minLen)) || wb.startsWith(wa.substring(0, minLen))) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function findBestMatch(parsed, candidates) {
+  if (!candidates || candidates.length === 0) return null;
+  let best = null, bestScore = 0;
+
+  for (const c of candidates) {
+    let score = 0;
+    const tSim = titleSimilarity(parsed.title, c.title);
+    score += tSim * 4; // title is most important
+    if (parsed.year && c.year && String(parsed.year) === String(c.year)) score += 1;
+    const am = firstAuthorMatch(parsed.authors, c.authors);
+    if (am === true) score += 1;
+    if (am === false) score -= 0.5;
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = { ...c, _score: score, _titleSim: tSim, _authorMatch: am };
+    }
+  }
+
+  // Need at least ~45% title match, but if first author explicitly doesn't match,
+  // require higher title similarity to avoid false positives from unrelated articles
+  if (!best) return null;
+  if (best._titleSim < 0.45) return null;
+  if (best._authorMatch === false && best._titleSim < 0.7) return null;
+  return best;
+}
+
+/* ============================================
+   API CALLS
+   ============================================ */
+const delay = ms => new Promise(r => setTimeout(r, ms));
+
+async function checkDOI(doi) {
+  try {
+    // DOIs are case-insensitive per specification — always query lowercase
+    doi = doi.toLowerCase();
+    const r = await fetch(`${CROSSREF_API}/works/${encodeURIComponent(doi)}?mailto=${MAILTO}`, {
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!r.ok) return { found: false, doi };
+    const d = await r.json();
+    const w = d.message;
+    const stripHtml = s => s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
+    return {
+      found: true, doi,
+      title: stripHtml((w.title || [])[0] || ''),
+      authors: (w.author || []).map(a => [a.family, a.given].filter(Boolean).join(', ')).join('; '),
+      journal: stripHtml((w['container-title'] || [])[0] || ''),
+      year: w.published?.['date-parts']?.[0]?.[0] || w.created?.['date-parts']?.[0]?.[0] || '',
+      volume: w.volume || '',
+      issue: w.issue || '',
+      page: w.page || '',
+      type: w.type || '',
+      source: 'crossref-doi'
+    };
+  } catch(e) { return { found: false, doi }; }
+}
+
+async function searchCrossRef(query, year) {
+  try {
+    let url = `${CROSSREF_API}/works?query.bibliographic=${encodeURIComponent(query)}&rows=5&mailto=${MAILTO}`;
+    if (year) url += `&filter=from-pub-date:${parseInt(year)-1},until-pub-date:${parseInt(year)+1}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!r.ok) return [];
+    const d = await r.json();
+    const stripHtml = s => s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
+    return (d.message?.items || []).map(w => ({
+      title: stripHtml((w.title || [])[0] || ''),
+      authors: (w.author || []).map(a => [a.family, a.given].filter(Boolean).join(', ')).join('; '),
+      journal: stripHtml((w['container-title'] || [])[0] || ''),
+      year: w.published?.['date-parts']?.[0]?.[0] || w.created?.['date-parts']?.[0]?.[0] || '',
+      volume: w.volume || '',
+      doi: w.DOI || '',
+      source: 'crossref'
+    }));
+  } catch(e) { return []; }
+}
+
+async function searchCrossRefByTitle(title, year) {
+  try {
+    let url = `${CROSSREF_API}/works?query.title=${encodeURIComponent(title.substring(0, 150))}&rows=5&mailto=${MAILTO}`;
+    if (year) url += `&filter=from-pub-date:${parseInt(year)-1},until-pub-date:${parseInt(year)+1}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!r.ok) return [];
+    const d = await r.json();
+    const stripHtml = s => s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
+    return (d.message?.items || []).map(w => ({
+      title: stripHtml((w.title || [])[0] || ''),
+      authors: (w.author || []).map(a => [a.family, a.given].filter(Boolean).join(', ')).join('; '),
+      journal: stripHtml((w['container-title'] || [])[0] || ''),
+      year: w.published?.['date-parts']?.[0]?.[0] || w.created?.['date-parts']?.[0]?.[0] || '',
+      volume: w.volume || '',
+      doi: w.DOI || '',
+      source: 'crossref'
+    }));
+  } catch(e) { return []; }
+}
+
+async function searchOpenAlex(title) {
+  try {
+    const url = `${OPENALEX_API}/works?search=${encodeURIComponent(title.substring(0, 150))}&per_page=5&mailto=${MAILTO}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d.results || []).map(w => ({
+      title: w.title || '',
+      authors: (w.authorships || []).map(a => a.author?.display_name || '').join('; '),
+      year: w.publication_year || '',
+      journal: w.primary_location?.source?.display_name || '',
+      doi: (w.doi || '').replace('https://doi.org/', ''),
+      source: 'openalex'
+    }));
+  } catch(e) { return []; }
+}
+
+async function searchSemanticScholar(title) {
+  try {
+    const url = `${S2_API}/paper/search?query=${encodeURIComponent(title.substring(0, 150))}&limit=5&fields=title,authors,year,venue,externalIds`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d.data || []).map(p => ({
+      title: p.title || '',
+      authors: (p.authors || []).map(a => a.name || '').join('; '),
+      year: p.year || '',
+      journal: p.venue || '',
+      doi: p.externalIds?.DOI || '',
+      source: 'semantic-scholar'
+    }));
+  } catch(e) { return []; }
+}
+
+async function searchOpenLibrary(title, author) {
+  try {
+    let q = encodeURIComponent(title.substring(0, 120));
+    // Add first author surname for better results
+    if (author) {
+      const surname = normalize(author).split(/[,;&]/)[0].trim().split(/\s+/).filter(w => w.length > 2)[0];
+      if (surname) q += '+' + encodeURIComponent(surname);
+    }
+    const url = `https://openlibrary.org/search.json?q=${q}&limit=5`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d.docs || []).map(b => {
+      // Open Library's first_publish_year is the FIRST edition — but books have multiple editions.
+      // Use publish_year array to find the closest year to what the reference claims, or the latest.
+      let year = b.first_publish_year || '';
+      const publishYears = (b.publish_year || []).map(Number).filter(y => y > 1900).sort((a, b) => b - a);
+      if (publishYears.length > 0) {
+        // Use the most recent publish year as default (most likely the edition being cited)
+        year = publishYears[0];
+      }
+      return {
+        title: b.title || '',
+        authors: (b.author_name || []).join('; '),
+        year: String(year),
+        journal: (b.publisher || [])[0] || '',
+        doi: '',
+        source: 'open-library',
+        _editions: publishYears // keep edition years for later comparison
+      };
+    });
+  } catch(e) { return []; }
+}
+
+async function searchGoogleBooks(title, author) {
+  try {
+    let q = encodeURIComponent(title.substring(0, 120));
+    if (author) {
+      const surname = normalize(author).split(/[,;&]/)[0].trim().split(/\s+/).filter(w => w.length > 2)[0];
+      if (surname) q += '+inauthor:' + encodeURIComponent(surname);
+    }
+    const url = `https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=5`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d.items || []).map(b => {
+      const v = b.volumeInfo || {};
+      return {
+        title: v.title || '',
+        authors: (v.authors || []).join('; '),
+        year: (v.publishedDate || '').substring(0, 4) || '',
+        journal: (v.publisher || ''),
+        doi: '',
+        source: 'google-books'
+      };
+    });
+  } catch(e) { return []; }
+}
+
+// arXiv returns Atom XML, not JSON — we parse it manually
+function _parseArxivEntry(entryXml) {
+  const get = (tag) => {
+    const m = entryXml.match(new RegExp('<' + tag + '[^>]*>([\\s\\S]*?)</' + tag + '>'));
+    return m ? m[1].replace(/\s+/g, ' ').trim() : '';
+  };
+  const title = get('title').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+  const published = get('published');
+  const year = published ? published.substring(0, 4) : '';
+  // Authors: multiple <author><name>...</name></author> blocks
+  const authorNames = [];
+  const authorRe = /<author[^>]*>[\s\S]*?<name[^>]*>([\s\S]*?)<\/name>[\s\S]*?<\/author>/g;
+  let am;
+  while ((am = authorRe.exec(entryXml)) !== null) {
+    authorNames.push(am[1].replace(/\s+/g, ' ').trim());
+  }
+  // arXiv id: <id>http://arxiv.org/abs/NNNN.NNNNN(vN)</id>
+  const idRaw = get('id');
+  const idM = idRaw.match(/abs\/(.+?)(?:v\d+)?$/);
+  const arxivId = idM ? idM[1] : '';
+  // DOI: may be present if the paper was published — <arxiv:doi>...</arxiv:doi>
+  const doiM = entryXml.match(/<arxiv:doi[^>]*>([\s\S]*?)<\/arxiv:doi>/);
+  const doi = doiM ? doiM[1].trim() : '';
+  return {
+    title: title,
+    authors: authorNames.join('; '),
+    year: year,
+    journal: 'arXiv:' + arxivId,
+    doi: doi,
+    source: 'arxiv',
+    _arxivId: arxivId
+  };
+}
+
+async function searchArxivById(arxivId) {
+  // Strategy A: official arXiv API (export.arxiv.org). Often blocked for file:// origin
+  // because export.arxiv.org may not send CORS headers for "Origin: null".
+  try {
+    const url = `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(arxivId)}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (r.ok) {
+      const xml = await r.text();
+      // Allow attributes on <entry> (defensive — arXiv usually has none, but some feeds do)
+      const entryMatch = xml.match(/<entry\b[^>]*>[\s\S]*?<\/entry>/);
+      if (entryMatch) {
+        const parsed = _parseArxivEntry(entryMatch[0]);
+        // arXiv returns a placeholder "Error" entry for bad IDs — skip those
+        if (parsed.title && !/^error\b/i.test(parsed.title)) {
+          return [parsed];
+        }
+      }
+    }
+  } catch(e) {
+    console.warn('arXiv export API failed for', arxivId, e && e.message);
+  }
+  // Strategy B: doi.org content negotiation via DataCite DOI
+  // Since 2022, every arXiv paper has a DataCite DOI of the form 10.48550/arXiv.{id}.
+  // doi.org resolves these with CORS enabled, so this works from file:// origin too.
+  try {
+    const doi = '10.48550/arXiv.' + arxivId;
+    const r = await fetch('https://doi.org/' + doi, {
+      headers: { 'Accept': 'application/vnd.citationstyles.csl+json' },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (r.ok) {
+      const d = await r.json();
+      const title = (d.title || '').replace(/<[^>]+>/g, '').trim();
+      if (title) {
+        const authors = (d.author || []).map(a => [a.family, a.given].filter(Boolean).join(', ')).join('; ');
+        const year = d.issued?.['date-parts']?.[0]?.[0] || (d.created?.['date-parts']?.[0]?.[0]) || '';
+        return [{
+          title: title,
+          authors: authors,
+          year: year ? String(year) : '',
+          journal: 'arXiv:' + arxivId,
+          doi: doi,
+          source: 'arxiv',
+          _arxivId: arxivId,
+          _viaDataCite: true
+        }];
+      }
+    }
+  } catch(e) {
+    console.warn('DataCite arXiv fallback failed for', arxivId, e && e.message);
+  }
+  // Strategy C: Semantic Scholar direct arXiv ID lookup via ARXIV: prefix.
+  // Last-resort — S2 has aggressive rate limits (429) for anonymous clients.
+  try {
+    const s2Url = `${S2_API}/paper/ARXIV:${encodeURIComponent(arxivId)}?fields=title,authors,year,venue,externalIds`;
+    const s2r = await fetch(s2Url, { signal: AbortSignal.timeout(10000) });
+    if (s2r.ok) {
+      const d = await s2r.json();
+      if (d && d.title) {
+        return [{
+          title: d.title,
+          authors: (d.authors || []).map(a => a.name || '').join('; '),
+          year: d.year ? String(d.year) : '',
+          journal: d.venue || ('arXiv:' + arxivId),
+          doi: (d.externalIds && d.externalIds.DOI) || '',
+          source: 'arxiv',
+          _arxivId: arxivId,
+          _viaS2: true
+        }];
+      }
+    }
+  } catch(e) {
+    console.warn('Semantic Scholar arXiv fallback failed for', arxivId, e && e.message);
+  }
+  return [];
+}
+
+async function searchArxiv(title, author) {
+  try {
+    if (!title || title.length < 10) return [];
+    // arXiv search_query syntax: ti:"..."+AND+au:...
+    // Using url-encoded quotes around title for phrase match
+    let q = 'ti:' + encodeURIComponent('"' + title.substring(0, 120) + '"');
+    if (author) {
+      const surname = normalize(author).split(/[,;&]/)[0].trim().split(/\s+/).filter(w => w.length > 2)[0];
+      if (surname) q += '+AND+au:' + encodeURIComponent(surname);
+    }
+    const url = `https://export.arxiv.org/api/query?search_query=${q}&max_results=5`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!r.ok) return [];
+    const xml = await r.text();
+    const entries = xml.match(/<entry\b[^>]*>[\s\S]*?<\/entry>/g) || [];
+    return entries.map(_parseArxivEntry).filter(e => e.title && !/^error\b/i.test(e.title));
+  } catch(e) {
+    console.warn('arXiv title search failed', e && e.message);
+    return [];
+  }
+}
+
+/* ============================================
+   VERIFICATION LOGIC
+   ============================================ */
+// Determine the label for the container: "journal" for articles, "book" for book chapters, etc.
+function containerLabel(parsed, record) {
+  // Check CrossRef type field
+  if (record && /book-chapter|book-section|monograph/i.test(record.type)) return 'book';
+  // Check if reference text looks like a book chapter: "In ... (Ed(s).)"
+  if (parsed && /\bIn\s+[A-Z].*?\(Eds?\.?\)/i.test(parsed.raw)) return 'book';
+  // Check for publisher keywords without journal-like volume/issue
+  if (parsed && /\b(Press|Publishers?|Publishing|Verlag|Kiadó|Palgrave|Springer|Routledge|Elgar)\b/i.test(parsed.raw)
+      && !/\d+\(\d+\)/.test(parsed.raw)) return 'book';
+  return 'journal';
+}
+
+async function verifyRef(parsed) {
+  const result = { status: 'warn', ref: parsed.raw, parsed, notes: [], found: null };
+  let doiFailed = false; // Track if a DOI was present but didn't resolve
+  let doiMismatch = false; // DOI resolved but pointed to a different paper
+
+  // Step 1: DOI verification
+  if (parsed.doi) {
+    const doiRes = await checkDOI(parsed.doi);
+    await delay(REQ_DELAY);
+
+    if (doiRes.found) {
+      result.found = doiRes;
+      let tSim = titleSimilarity(parsed.title, doiRes.title);
+      // Fallback: if parsed title extraction failed or gave poor match,
+      // check if the CrossRef title appears in the raw reference text
+      if (tSim < 0.7 && doiRes.title && parsed.raw) {
+        const rawSim = titleSimilarity(parsed.raw, doiRes.title);
+        // Also check direct substring containment (case-insensitive)
+        const normCR = normalize(doiRes.title);
+        const normRaw = normalize(parsed.raw);
+        const containsTitle = normCR.length >= 15 && normRaw.includes(normCR);
+        if (containsTitle) tSim = Math.max(tSim, 0.95);
+        else if (rawSim > tSim) tSim = Math.max(tSim, rawSim * 0.9);
+        tSim = Math.min(tSim, 1.0);
+      }
+      const am = firstAuthorMatch(parsed.authors, doiRes.authors);
+      const yearExact = !parsed.year || String(parsed.year) === String(doiRes.year);
+      const yearClose = !parsed.year || Math.abs(parseInt(parsed.year) - parseInt(doiRes.year)) <= 1;
+
+      // Check journal name match (skip for books — parsed.journal is the publisher, not a journal)
+      const refIsBook = !parsed.journal || parsed.isBookChapter || /\b(Press|Publishers?|Publishing|Verlag|Kiadó|Routledge|Elgar|Springer|Wiley|Sage|Bloomsbury|Cambridge|Oxford)\b/i.test(parsed.raw);
+      // Normalize known repository/preprint journal name variants before comparison
+      const normJournal = j => {
+        if (!j) return j;
+        const lo = j.toLowerCase();
+        if (lo.includes('ssrn') || lo.includes('social science research network')) return 'SSRN';
+        if (lo.includes('arxiv')) return 'arXiv';
+        if (lo.includes('repec') || lo.includes('research papers in economics')) return 'RePEc';
+        if (lo.includes('nber') || lo.includes('national bureau of economic research')) return 'NBER';
+        return j;
+      };
+      const normRefJ = normJournal(parsed.journal);
+      const normDoiJ = normJournal(doiRes.journal);
+      const journalSim = !refIsBook && normRefJ && normDoiJ ? (normRefJ === normDoiJ ? 1 : titleSimilarity(normRefJ, normDoiJ)) : 1;
+      const journalMismatch = !refIsBook && parsed.journal && doiRes.journal && journalSim < 0.45;
+      const journalDiffers = !refIsBook && parsed.journal && doiRes.journal && journalSim < 0.85 && journalSim >= 0.45;
+
+      if (tSim >= 0.5 && yearClose && !journalMismatch && am === false) {
+        // DOI resolves, title looks similar, but AUTHOR does not match
+        if (tSim >= 0.85 && yearExact && !journalMismatch) {
+          // Very high title match + year exact → DOI is correct, but author form is wrong.
+          // This IS an error the editor needs to fix — but show WHAT to fix it to.
+          result.status = 'error';
+          result.notes.push('DOI verified, title/year/journal match, but author names are incorrect');
+          result.notes.push('Reference: ' + (parsed.authors || '').substring(0, 120));
+          result.notes.push('CrossRef / journal index: ' + (doiRes.authors || '').substring(0, 120));
+          const suggested = formatCrossRefAuthorsAPA(doiRes.authors);
+          if (suggested) {
+            result.notes.push('Correct form (as indexed by CrossRef and the publisher): ' + suggested);
+          }
+          return result;
+        } else {
+          // Lower title similarity → likely a book review DOI — search for correct record
+          result.notes.push('DOI resolves but first author does not match');
+          result.notes.push('Reference author: ' + (parsed.authors || '').split(/[,;&]/)[0].trim());
+          result.notes.push('DOI record author: ' + (doiRes.authors || '').split(';')[0].trim());
+          if (doiRes.journal) result.notes.push('DOI points to: ' + doiRes.journal + ' (' + doiRes.year + ') \u2014 this may be a book review, not the book itself');
+          doiFailed = true;
+          doiMismatch = true;
+        }
+      } else if (tSim >= 0.5 && yearClose && !journalMismatch) {
+        // DOI valid, title matches, year OK, journal OK, author OK
+        result.status = 'ok';
+        result.notes.push('DOI verified in CrossRef');
+        const checks = [];
+        if (tSim >= 0.7) checks.push('title match');
+        else checks.push('title: partial match');
+        if (am === true) checks.push('first author match');
+        if (yearExact) checks.push('year match');
+        else checks.push('year: ' + parsed.year + ' in ref / ' + doiRes.year + ' in CrossRef (online-first vs. print)');
+        if (doiRes.journal) { const cl = containerLabel(parsed, doiRes); checks.push(cl + ': ' + doiRes.journal); }
+        result.notes.push(checks.join(' / '));
+        // Check if journal name differs (not mismatch-level, but not identical either)
+        if (journalDiffers) {
+          result.status = 'error';
+          const cl = containerLabel(parsed, doiRes);
+          result.notes.push(cl.charAt(0).toUpperCase() + cl.slice(1) + ' name differs: reference says "' + parsed.journal + '", CrossRef says "' + doiRes.journal + '"');
+        }
+        // Check if author name order may be wrong: the CrossRef surname should appear in the reference
+        // e.g. ref says "NADJE A." but CrossRef says "Al-Ali, Nadje" — "Al-Ali" is the surname
+        if (am === true && doiRes.authors && parsed.authors) {
+          // Extract surname from CrossRef "Surname, Given" format — take the part before the comma
+          const crFirstAuthor = (doiRes.authors || '').split(';')[0].trim();
+          const crFamilyRaw = crFirstAuthor.includes(',')
+            ? crFirstAuthor.split(',')[0].trim()
+            : (crFirstAuthor.split(/\s+/).slice(-1)[0] || '');
+          // Word-level match: CrossRef sometimes mis-parses names and packs a given name
+          // into the surname field (e.g. family="Jane Osareme" where "Jane" is the given
+          // name and "Osareme" is the real surname). If ANY significant word from the
+          // CrossRef surname appears as a whole word in the reference's author list,
+          // treat it as a match — the reference is probably correct even if it doesn't
+          // literally contain CrossRef's full family string.
+          const crSurnameWords = normalize(crFamilyRaw).split(/\s+/).filter(w => w.length > 2);
+          const refWordSet = new Set(normalize(parsed.authors).split(/\s+/).filter(w => w.length > 2));
+          const anyWordInRef = crSurnameWords.some(w => refWordSet.has(w));
+          if (crSurnameWords.length > 0 && !anyWordInRef) {
+            // Author name form in the reference does not match CrossRef / the publisher.
+            // This IS an error (the editor should fix the reference), but surface the
+            // publisher/CrossRef form as the suggested correction.
+            result.status = 'error';
+            result.notes.push('Author names do not match CrossRef / journal index');
+            result.notes.push('Reference: ' + parsed.authors.substring(0, 120));
+            result.notes.push('CrossRef / journal index: ' + (doiRes.authors || '').substring(0, 120));
+            const suggested = formatCrossRefAuthorsAPA(doiRes.authors);
+            if (suggested) {
+              result.notes.push('Correct form (as indexed by CrossRef and the publisher): ' + suggested);
+            }
+            }
+        }
+        return result;
+      } else if (tSim >= 0.5 && yearClose && journalMismatch && yearExact) {
+        result.status = 'error';
+        { const cl = containerLabel(parsed, doiRes);
+        result.notes.push('DOI verified and title matches, but ' + cl + ' name is incorrect');
+        result.notes.push('Reference says: ' + parsed.journal);
+        result.notes.push('CrossRef record: ' + doiRes.journal); }
+        return result;
+      } else if (tSim >= 0.5 && yearClose && journalMismatch && !yearExact) {
+        result.status = 'error';
+        { const cl = containerLabel(parsed, doiRes); const clCap = cl.charAt(0).toUpperCase() + cl.slice(1);
+        result.notes.push('DOI verified but ' + cl + ' name and year are incorrect');
+        result.notes.push(clCap + ': reference says "' + parsed.journal + '", correct: "' + doiRes.journal + '"'); }
+        result.notes.push('Year: reference says ' + parsed.year + ', CrossRef says ' + doiRes.year);
+        return result;
+      } else if (tSim >= 0.5 && !yearClose && refIsBook && am !== false) {
+        result.status = 'ok';
+        result.notes.push('DOI verified in CrossRef');
+        const checks = [];
+        checks.push('title match');
+        if (am === true) checks.push('first author match');
+        checks.push('year: ' + parsed.year + ' in ref / ' + doiRes.year + ' in CrossRef (print vs. eBook date)');
+        result.notes.push(checks.join(' / '));
+        return result;
+      } else if (tSim >= 0.5 && !yearClose) {
+        result.status = 'warn';
+        result.notes.push('DOI verified but year differs significantly');
+        result.notes.push('Year: reference says ' + parsed.year + ', CrossRef says ' + doiRes.year);
+        if (doiRes.journal) { const cl = containerLabel(parsed, doiRes); result.notes.push(cl.charAt(0).toUpperCase() + cl.slice(1) + ': ' + doiRes.journal); }
+        result.notes.push('Please verify the publication year');
+        return result;
+      } else if (am !== false && yearClose) {
+        // DOI resolves, author+year match, but title doesn't match
+        result.status = 'warn';
+        result.notes.push('DOI verified in CrossRef');
+        // Check if this is a book chapter referencing the whole book DOI
+        const chapterWithBookDOI = parsed.isBookChapter && doiRes.type &&
+          /book|edited|monograph/i.test(doiRes.type);
+        const rawHasBookTitle = doiRes.title && parsed.raw &&
+          normalize(parsed.raw).includes(normalize(doiRes.title));
+        if (chapterWithBookDOI || rawHasBookTitle) {
+          result.notes.push('Note: DOI points to the whole book, not this specific chapter');
+          result.notes.push('The chapter itself may have a separate DOI');
+        } else if (tSim < 0.2) {
+          result.notes.push('Title in database may be in a different language');
+        } else {
+          result.notes.push('Title in CrossRef record differs from reference');
+          if (parsed.title) result.notes.push('Reference title: ' + parsed.title);
+          if (doiRes.title) result.notes.push('CrossRef title: ' + doiRes.title);
+          result.notes.push('The paper may have been published with a revised title');
+        }
+        const checks = [];
+        if (am === true) checks.push('first author match');
+        if (yearExact) checks.push('year match');
+        else checks.push('year: ' + parsed.year + ' in ref / ' + doiRes.year + ' in CrossRef');
+        if (doiRes.journal) { const cl = containerLabel(parsed, doiRes); checks.push(cl + ': ' + doiRes.journal); }
+        result.notes.push(checks.join(' / '));
+        return result;
+      } else {
+        // DOI resolves but title AND author/year don't match — likely wrong DOI
+        // Don't return yet — fall through to search for the correct record
+        doiFailed = true;
+        doiMismatch = true;
+      }
+    } else {
+      // DOI not in CrossRef — try Semantic Scholar DOI lookup (covers SSRN, arXiv, etc.)
+      try {
+        const s2DoiUrl = `${S2_API}/paper/DOI:${encodeURIComponent(parsed.doi)}?fields=title,authors,year,venue,externalIds`;
+        const s2DoiResp = await fetch(s2DoiUrl, { signal: AbortSignal.timeout(10000) });
+        if (s2DoiResp.ok) {
+          const s2d = await s2DoiResp.json();
+          if (s2d && s2d.title) {
+            const s2Title = s2d.title;
+            const s2Authors = (s2d.authors || []).map(a => a.name || '').join('; ');
+            const s2Year = s2d.year || '';
+            const s2Journal = s2d.venue || '';
+            const tSim = titleSimilarity(parsed.title, s2Title);
+            const am = firstAuthorMatch(parsed.authors, s2Authors);
+            const yearOk = !parsed.year || !s2Year || Math.abs(parseInt(parsed.year) - parseInt(s2Year)) <= 1;
+            if (tSim >= 0.5 && (am !== false) && yearOk) {
+              result.status = 'ok';
+              result.found = { title: s2Title, authors: s2Authors, year: s2Year, journal: s2Journal, doi: parsed.doi, source: 'semantic-scholar' };
+              result.notes.push('DOI verified in Semantic Scholar');
+              const checks = [];
+              if (tSim >= 0.7) checks.push('title match');
+              if (am === true) checks.push('first author match');
+              if (parsed.year && s2Year && parsed.year === String(s2Year)) checks.push('year match');
+              if (s2Journal) checks.push('journal: ' + s2Journal);
+              result.notes.push(checks.join(' / '));
+              return result;
+            } else {
+              // DOI found in S2 but metadata doesn't match well — still note it
+              result.found = { title: s2Title, authors: s2Authors, year: s2Year, journal: s2Journal, doi: parsed.doi, source: 'semantic-scholar' };
+              result.notes.push('DOI found in Semantic Scholar but metadata has discrepancies');
+            }
+          }
+        }
+      } catch(e) { /* S2 lookup failed, continue */ }
+      await delay(REQ_DELAY);
+
+      // Fallback: doi.org content negotiation — works for ANY DOI regardless of registrar
+      // Returns metadata as JSON (citeproc format) via Accept header
+      if (!result.found || !result.notes.some(n => n.includes('verified'))) {
+        try {
+          const doiCnResp = await fetch('https://doi.org/' + parsed.doi, {
+            headers: { 'Accept': 'application/vnd.citationstyles.csl+json' },
+            signal: AbortSignal.timeout(10000)
+          });
+          if (doiCnResp.ok) {
+            const cn = await doiCnResp.json();
+            const cnTitle = (cn.title || '').replace(/<[^>]+>/g, '').trim();
+            const cnAuthors = (cn.author || []).map(a => [a.family, a.given].filter(Boolean).join(', ')).join('; ');
+            const cnYear = cn.issued?.['date-parts']?.[0]?.[0] || '';
+            const cnJournal = cn['container-title'] || '';
+            if (cnTitle) {
+              const tSim = titleSimilarity(parsed.title, cnTitle);
+              const am = firstAuthorMatch(parsed.authors, cnAuthors);
+              const yearOk = !parsed.year || !cnYear || Math.abs(parseInt(parsed.year) - parseInt(cnYear)) <= 1;
+              if (tSim >= 0.5 && am !== false && yearOk) {
+                result.status = 'ok';
+                result.found = { title: cnTitle, authors: cnAuthors, year: String(cnYear), journal: cnJournal, doi: parsed.doi, source: 'doi.org' };
+                result.notes = ['DOI verified via doi.org (not indexed in CrossRef)'];
+                const checks = [];
+                checks.push('title match (' + Math.round(tSim * 100) + '%)');
+                if (am === true) checks.push('first author match');
+                if (parsed.year && cnYear && parsed.year === String(cnYear)) checks.push('year match');
+                if (cnJournal) checks.push('journal: ' + cnJournal);
+                result.notes.push(checks.join(' / '));
+                return result;
+              } else {
+                // DOI resolves with metadata but doesn't match well
+                result.found = { title: cnTitle, authors: cnAuthors, year: String(cnYear), journal: cnJournal, doi: parsed.doi, source: 'doi.org' };
+                result.notes.push('DOI resolves at doi.org but metadata has discrepancies');
+              }
+            }
+          }
+        } catch(e) { /* doi.org content negotiation failed — continue */ }
+      }
+
+      doiFailed = true;
+      if (!result.notes.some(n => n.includes('Semantic Scholar') || n.includes('doi.org'))) {
+        result.notes.push('DOI ' + parsed.doi + ' not found in CrossRef');
+      }
+    }
+  }
+
+  // Step 1b: Direct arXiv ID lookup — if the reference cites an arXiv preprint,
+  // we can verify it directly via the arXiv API (handles preprints that have no DOI)
+  if (parsed.arxivId && !result.found) {
+    const arxivRes = await searchArxivById(parsed.arxivId);
+    await delay(REQ_DELAY);
+    if (arxivRes && arxivRes.length > 0) {
+      const ax = arxivRes[0];
+      const tSim = titleSimilarity(parsed.title, ax.title);
+      const am = firstAuthorMatch(parsed.authors, ax.authors);
+      const yearOk = !parsed.year || !ax.year || Math.abs(parseInt(parsed.year) - parseInt(ax.year)) <= 1;
+      if (tSim >= 0.5 && am !== false && yearOk) {
+        result.status = 'ok';
+        result.found = ax;
+        result.notes.push('arXiv ID ' + parsed.arxivId + ' verified via arXiv');
+        const checks = [];
+        if (tSim >= 0.7) checks.push('title match');
+        else checks.push('title: partial match (' + Math.round(tSim * 100) + '%)');
+        if (am === true) checks.push('first author match');
+        if (parsed.year && ax.year && parsed.year === String(ax.year)) checks.push('year match');
+        checks.push('arXiv:' + parsed.arxivId);
+        result.notes.push(checks.join(' / '));
+        return result;
+      } else if (ax.title) {
+        // arXiv ID resolves but metadata differs — record it but keep searching
+        result.found = ax;
+        result.notes.push('arXiv ID ' + parsed.arxivId + ' resolves but metadata has discrepancies');
+      }
+    }
+    // Note: we intentionally do NOT push a "not found on arXiv" note here. When the
+    // arXiv lookup fails (e.g. because export.arxiv.org is unreachable from file://
+    // origin due to CORS), we still want the remaining searches (OpenAlex, CrossRef,
+    // etc.) to find the paper cleanly, without a misleading error note.
+  }
+
+  // Clean title for searching: strip edition markers, normalize dashes
+  const cleanTitle = (parsed.title || '')
+    .replace(/\s*\([\w\s]*(?:ed|edition|anniversary|commemorative|special|abridged|unabridged|reprint)\.?\)\s*/gi, ' ')
+    .replace(/[\u2013\u2014]/g, '-')  // en-dash/em-dash → hyphen for API queries
+    .trim();
+
+  // Step 2: Search CrossRef (bibliographic + title) + OpenAlex in parallel
+  // Using both query.bibliographic (full ref text) and query.title (clean title only)
+  // because noisy reference text can cause query.bibliographic to miss well-known papers
+  const [crResults, crTitleResults, oaResults] = await Promise.all([
+    searchCrossRef(parsed.searchQuery, parsed.year),
+    cleanTitle && cleanTitle.length >= 15 ? searchCrossRefByTitle(cleanTitle, parsed.year) : Promise.resolve([]),
+    cleanTitle ? searchOpenAlex(cleanTitle) : Promise.resolve([])
+  ]);
+  await delay(REQ_DELAY);
+
+  let allCandidates = [...crResults, ...crTitleResults, ...oaResults];
+  let best = findBestMatch(parsed, allCandidates);
+
+  // Step 3: If not found OR only poor match, try Semantic Scholar
+  const bestIsWeak = best && best._titleSim < 0.65;
+  if ((!best || bestIsWeak) && parsed.title) {
+    const s2Results = await searchSemanticScholar(cleanTitle || parsed.title);
+    await delay(REQ_DELAY);
+    const s2Best = findBestMatch(parsed, s2Results || []);
+    if (s2Best && (!best || s2Best._titleSim > best._titleSim)) best = s2Best;
+  }
+
+  // Step 4: Try book-specific sources (Open Library + Google Books)
+  // Always try for book-like references (no journal field, or publisher keywords like "Press")
+  // Also try when current best is from a review journal (not the actual book)
+  const looksLikeBook = !parsed.journal || /\b(Press|Publishers?|Publishing|Verlag|Kiadó)\b/i.test(parsed.raw);
+  const bestIsReview = best && best.journal && /\breview/i.test(best.journal);
+  const needBookSearch = !best || best._titleSim < 0.65 || looksLikeBook || bestIsReview;
+  if (needBookSearch && parsed.title) {
+    const [olResults, gbResults] = await Promise.all([
+      searchOpenLibrary(cleanTitle || parsed.title, parsed.authors),
+      searchGoogleBooks(cleanTitle || parsed.title, parsed.authors)
+    ]);
+    await delay(REQ_DELAY);
+    const bookCandidates = [...(olResults || []), ...(gbResults || [])];
+    const bookBest = findBestMatch(parsed, bookCandidates);
+    if (bookBest) {
+      // Prefer book result over review journal result for book-like references
+      const preferBook = looksLikeBook && bestIsReview && bookBest._titleSim >= 0.5;
+      if (!best || bookBest._titleSim > best._titleSim || preferBook) {
+        best = bookBest;
+      }
+    } else {
+    }
+  }
+
+  // Step 5: Author-mismatch retry — when title matches well but wrong author found,
+  // retry search with author surname + title to find the correct version of the work
+  if (best && best._authorMatch === false && best._titleSim >= 0.8 && parsed.authors && parsed.title) {
+    const surname = normalize(parsed.authors).split(/[,;&]/)[0].trim().split(/\s+/).filter(w => w.length > 2)[0];
+    if (surname) {
+      const authorQuery = surname + ' ' + (cleanTitle || parsed.title);
+      const [crRetry, oaRetry, olRetry, gbRetry] = await Promise.all([
+        searchCrossRef(authorQuery, parsed.year),
+        searchOpenAlex(authorQuery),
+        searchOpenLibrary(cleanTitle || parsed.title, parsed.authors),
+        searchGoogleBooks(cleanTitle || parsed.title, parsed.authors)
+      ]);
+      await delay(REQ_DELAY);
+      const retryCandidates = [...(crRetry || []), ...(oaRetry || []), ...(olRetry || []), ...(gbRetry || [])];
+      const retryBest = findBestMatch(parsed, retryCandidates);
+      if (retryBest && retryBest._authorMatch !== false && retryBest._titleSim >= 0.5) {
+        best = retryBest; // Found the correct version with matching author
+      }
+    }
+  }
+
+  // If reference is a book but best result is from a review/short-form journal, discard it — it's a book review, not the book itself
+  const isReviewSource = best && best.journal && /\b(review|affairs|choice|booklist)\b/i.test(best.journal);
+  if (best && looksLikeBook && isReviewSource && best.source !== 'open-library' && best.source !== 'google-books') {
+    best = null;
+  }
+
+  // Discard results that are clearly a different work:
+  // - author doesn't match AND year is off by 3+ years, OR
+  // - author doesn't match AND title similarity < 80% (different work on similar topic), OR
+  // - author doesn't match AND title is short/generic (<=5 content words) AND year differs at all
+  //   (short generic titles like "Cryptocurrency and Crime" or "Blockchain Security"
+  //    are very prone to topical coincidence matches across unrelated papers)
+  if (best && best._authorMatch === false) {
+    const yearGap = parsed.year && best.year ? Math.abs(parseInt(parsed.year) - parseInt(best.year)) : 0;
+    if (yearGap >= 3 || best._titleSim < 0.8) {
+      best = null;
+    } else if (parsed.title && yearGap >= 1) {
+      const titleWordCount = parsed.title.trim()
+        .split(/\s+/)
+        .filter(w => w.length > 2 && !/^(and|the|for|with|from|into|over|about|after|before)$/i.test(w))
+        .length;
+      if (titleWordCount <= 5) best = null;
+    }
+  }
+
+  // Discard results where the found title is a review/commentary about the referenced work
+  // (e.g. 'Review for "Predictors of..."' when reference is 'Predictors of...')
+  if (best && best.title && /^(Review\s+(for|of)|Commentary\s+on|Response\s+to|Erratum|Corrigendum)\b/i.test(best.title)) {
+    best = null;
+  }
+  // Discard results that are likely book reviews: reference is a book (has publisher, no journal)
+  // but found record is a journal article with a completely different first author
+  // (e.g. Fabian book found as Hanson's review in American Ethnologist)
+  if (best && best._authorMatch === false && best.journal) {
+    const refIsBook = parsed.raw && /\b(Press|Publishers?|Publishing|Verlag|Kiadó)\b/i.test(parsed.raw)
+      && !parsed.journal;
+    if (refIsBook) best = null;
+  }
+
+  // Discard results for web sources (URL-only references without journal/volume)
+  // where title is very short — high risk of false positive matches
+  if (best && !parsed.doi && !parsed.journal && parsed.raw && /https?:\/\//.test(parsed.raw)) {
+    // Web source: require higher title similarity threshold
+    if (best._titleSim < 0.90) best = null;
+  }
+
+  // Step 6: Last-resort search — if still no match, try CrossRef with author surname + title
+  // This catches cases where both query.bibliographic and query.title fail with noisy input
+  if (!best && parsed.title && parsed.authors && cleanTitle) {
+    const surname = normalize(parsed.authors).split(/[,;&]/)[0].trim().split(/\s+/).filter(w => w.length > 2)[0];
+    if (surname && surname.length > 2) {
+      const lastResortQuery = surname + ' ' + cleanTitle;
+      const [lrCr, lrOa] = await Promise.all([
+        searchCrossRef(lastResortQuery, parsed.year),
+        searchOpenAlex(lastResortQuery)
+      ]);
+      await delay(REQ_DELAY);
+      const lrCandidates = [...(lrCr || []), ...(lrOa || [])];
+      const lrBest = findBestMatch(parsed, lrCandidates);
+      if (lrBest && lrBest._titleSim >= 0.5) best = lrBest;
+    }
+  }
+
+  // Step 7: arXiv title search — for preprints and CS/physics/math papers that may
+  // only exist on arXiv (or whose published version has a different title)
+  if (!best && cleanTitle && cleanTitle.length >= 15) {
+    const arxivResults = await searchArxiv(cleanTitle, parsed.authors);
+    await delay(REQ_DELAY);
+    const arxivBest = findBestMatch(parsed, arxivResults || []);
+    if (arxivBest && arxivBest._titleSim >= 0.65) best = arxivBest;
+  }
+
+  if (best) {
+    result.found = best;
+    const tSim = best._titleSim;
+    const isBookSource = best.source === 'open-library' || best.source === 'google-books';
+    const yearExact = !parsed.year || String(parsed.year) === String(best.year);
+    const yearClose = !parsed.year || Math.abs(parseInt(parsed.year) - parseInt(best.year)) <= 1;
+    // For books with multiple editions: check if reference year matches ANY known edition year
+    const editionYears = best._editions || [];
+    const yearMatchesEdition = parsed.year && editionYears.includes(parseInt(parsed.year));
+    // For books, allow wider year tolerance (different editions have different years)
+    const yearOk = yearClose || yearMatchesEdition || (isBookSource && tSim >= 0.8);
+    const am = firstAuthorMatch(parsed.authors, best.authors);
+
+    if (tSim >= 0.65 && yearOk && am !== false) {
+      if (doiFailed) {
+        // Check if the found DOI is actually the same as the reference DOI (case-insensitive)
+        // This means the DOI is correct but the journal is simply not indexed in CrossRef
+        const normDoi = d => d ? d.toLowerCase().replace(/[\u2013\u2014]/g, '-') : '';
+        const sameDoiCaseInsensitive = parsed.doi && best.doi && normDoi(parsed.doi) === normDoi(best.doi);
+        if (sameDoiCaseInsensitive) {
+          // DOI is correct — journal just not in CrossRef
+          result.status = 'ok';
+          result.notes = []; // Clear "DOI not found in CrossRef" note
+          result.notes.push('Article confirmed via ' + sourceLabel(best.source));
+        } else {
+          // Article found but DOI is broken — check if journal also differs
+          // Skip journal comparison for books (parsed.journal is actually the publisher, not a journal)
+          // Also skip if found source is a repository/archive (not the actual journal)
+          const foundIsRepo = best.journal && /\b(archive|repository|repozit|universit|electron|digital|preprint|ssrn|arxiv|hal)\b/i.test(best.journal);
+          const journalAlsoDiffers = !looksLikeBook && !foundIsRepo && parsed.journal && best.journal && titleSimilarity(parsed.journal, best.journal) < 0.45;
+          if (journalAlsoDiffers) {
+            const cl = containerLabel(parsed, best);
+            const clCap = cl.charAt(0).toUpperCase() + cl.slice(1);
+            result.status = 'error';
+            if (doiMismatch) {
+              result.notes.push('DOI in reference points to a different paper and ' + cl + ' name is also incorrect');
+              result.notes.push(clCap + ': reference says "' + parsed.journal + '", found: "' + best.journal + '"');
+            } else {
+              result.notes.push('DOI is invalid and ' + cl + ' name is incorrect');
+              result.notes.push('DOI ' + parsed.doi + ' does not resolve');
+              result.notes.push(clCap + ': reference says "' + parsed.journal + '", found: "' + best.journal + '"');
+            }
+            result.notes.push('Article may exist but reference has multiple errors');
+          } else {
+            result.status = 'error';
+            if (doiMismatch) {
+              result.notes.push('DOI in reference points to a different paper');
+              result.notes.push('Correct record found via ' + sourceLabel(best.source));
+            } else {
+              result.notes.push('Article found via ' + sourceLabel(best.source) + ', but DOI in reference is invalid');
+              result.notes.push('The DOI ' + parsed.doi + ' does not resolve \u2014 please fix the DOI');
+            }
+          }
+        }
+        const checks = [];
+        checks.push('title match (' + Math.round(tSim * 100) + '%)');
+        if (am === true) checks.push('first author match');
+        if (best.journal) { const cl = containerLabel(parsed, best); checks.push(cl + ': ' + best.journal); }
+        result.notes.push(checks.join(' / '));
+      } else {
+        result.status = 'ok';
+        result.notes.push('Found matching record via ' + sourceLabel(best.source));
+        const checks = [];
+        checks.push('title match (' + Math.round(tSim * 100) + '%)');
+        if (am === true) checks.push('first author match');
+        if (yearExact && parsed.year) checks.push('year match');
+        else if (!yearExact && parsed.year && yearClose) checks.push('year: ' + parsed.year + ' in ref / ' + best.year + ' in database (online-first vs. print)');
+        else if (!yearExact && parsed.year) checks.push('year: ' + parsed.year + ' in ref / ' + best.year + ' in database (different edition)');
+        if (best.journal) { const cl = containerLabel(parsed, best); checks.push(cl + ': ' + best.journal); }
+        result.notes.push(checks.join(' / '));
+      }
+    } else if (tSim >= 0.65 && am === true && !yearOk) {
+      if (doiFailed) {
+        result.status = 'error';
+        result.notes.push('Article found via ' + sourceLabel(best.source) + ', but DOI in reference is invalid');
+        result.notes.push('The DOI ' + parsed.doi + ' does not resolve \u2014 please fix the DOI');
+      } else {
+        result.status = 'ok';
+        result.notes.push('Found matching record via ' + sourceLabel(best.source));
+      }
+      result.notes.push('title match (' + Math.round(tSim * 100) + '%) / first author match / year: ' + parsed.year + ' in ref, ' + best.year + ' found (different edition)');
+    } else {
+      // If DOI failed in CrossRef but we only found a weak search match, check if DOI resolves at doi.org
+      // A resolving DOI is stronger evidence than a weak database match
+      if (doiFailed && parsed.doi && tSim < 0.65) {
+        try {
+          const doiHeadResp = await fetch('https://doi.org/api/handles/' + encodeURIComponent(parsed.doi), {
+            signal: AbortSignal.timeout(8000)
+          });
+          const doiHeadData = doiHeadResp.ok ? await doiHeadResp.json() : null;
+          if (doiHeadData && doiHeadData.responseCode === 1) {
+            result.status = 'ok';
+            result.notes.push('DOI verified \u2014 resolves at doi.org (journal not indexed in CrossRef)');
+            result.notes.push('Manual verification recommended for bibliographic details');
+            return result;
+          }
+        } catch(e) { /* network error — fall through to weak match reporting */ }
+      }
+      // When author doesn't match, require very high title similarity (>= 0.92) to show as "similar"
+      // Lower similarity with wrong author usually means a different work with overlapping topic words
+      // e.g. "Biodiversity Law and Climate Adaptation" vs "Climate change adaptation and biodiversity law"
+      if (am === false && tSim < 0.92) {
+        // Don't show this misleading match — treat as not found
+        best = null;
+        result.found = null;
+      }
+      // Additional suppression: if the year gap is large OR the title similarity is weak,
+      // this is almost certainly an unrelated keyword-overlap match (e.g. a 2024 Reuters news
+      // article mis-matched to a 1994 book about Costa Rica). Jaccard on short titles can easily
+      // produce 0.6-0.8 for topically unrelated items sharing a few common words, so we must be
+      // aggressive when the year is off and/or the author didn't clearly match.
+      if (best && parsed.year && best.year) {
+        const yearDiff = Math.abs(parseInt(parsed.year, 10) - parseInt(best.year, 10));
+        // Big year gap + not a clear author match is always suspicious
+        if (yearDiff > 10 && am !== true) {
+          best = null;
+          result.found = null;
+        }
+        // Moderate year gap + weak title similarity
+        else if (yearDiff > 5 && tSim < 0.8) {
+          best = null;
+          result.found = null;
+        }
+        // Very large year gap + less than near-perfect title match
+        else if (yearDiff > 20 && tSim < 0.95) {
+          best = null;
+          result.found = null;
+        }
+      }
+      // Also: if author couldn't be matched (am === null, e.g. org/Reuters authors)
+      // and title similarity is mediocre, suppress — we have no anchor to trust.
+      if (best && am !== true && tSim < 0.8) {
+        best = null;
+        result.found = null;
+      }
+      if (best) {
+        result.status = 'warn';
+        // When author and year match but title is low, likely a shortened/abbreviated title in reference
+        if (tSim < 0.65 && am === true && yearOk) {
+          result.notes.push('Possible match found via ' + sourceLabel(best.source) + ' \u2014 reference may use shortened title');
+          result.notes.push('Title similarity: ' + Math.round(tSim * 100) + '%');
+          if (parsed.title) result.notes.push('Reference title: "' + parsed.title + '"');
+          if (best.title) result.notes.push('Database title: "' + best.title + '"');
+          result.notes.push('First author and year match \u2014 likely the same work');
+        } else {
+          result.notes.push('Similar record found via ' + sourceLabel(best.source) + ' but with discrepancies');
+          if (tSim < 0.65) {
+            result.notes.push('Title similarity: ' + Math.round(tSim * 100) + '% \u2014 may be different work');
+            if (parsed.title) result.notes.push('Reference title: ' + parsed.title);
+            if (best.title) result.notes.push('Database title: ' + best.title);
+          }
+        }
+        if (!yearOk && parsed.year) {
+          let yearNote = 'Year: reference says ' + parsed.year + ', found ' + best.year;
+          if (editionYears.length > 1) yearNote += ' (known editions: ' + editionYears.slice(0, 6).join(', ') + ')';
+          result.notes.push(yearNote);
+        } else if (!yearExact && parsed.year) {
+          let yearNote = 'Year: ' + parsed.year + ' in ref / ' + best.year + ' in database';
+          if (yearMatchesEdition) yearNote += ' (year matches a known edition)';
+          else if (editionYears.length > 1) yearNote += ' (known editions: ' + editionYears.slice(0, 6).join(', ') + ')';
+          result.notes.push(yearNote);
+        }
+        if (am === false) result.notes.push('First author does not match');
+        result.notes.push('Manual verification recommended');
+      }
+    }
+    // If best was nulled by misleading-match suppression, fall through to "not found" instead of returning
+    if (!best) {
+      // fall through to "not found" code below
+    } else {
+      return result;
+    }
+  }
+
+  // Not found anywhere
+  // But if we already have a found record from DOI lookup, don't say "fabricated"
+  // The DOI resolved, so the paper exists — it's just the title/metadata comparison that failed
+  if (result.found) {
+    result.status = 'warn';
+    if (parsed.doi) {
+      result.notes.push('DOI resolves in CrossRef but metadata could not be fully matched');
+      result.notes.push('This may be due to different language titles or metadata discrepancies');
+    } else {
+      result.notes.push('A similar record was found but could not be confidently matched');
+    }
+    result.notes.push('Manual verification recommended');
+    return result;
+  }
+  const looksLikeBookFinal = /\b(Press|Publishers?|Publishing|Verlag|Kiad\u00F3|Books?)\b/i.test(parsed.raw);
+  if (parsed.doi && !looksLikeBookFinal) {
+    // Before declaring "fabricated", try a HEAD request to doi.org to see if DOI resolves at all
+    try {
+      // Use doi.org Handle API which is CORS-friendly (unlike doi.org redirects)
+      const doiCheckResp = await fetch('https://doi.org/api/handles/' + encodeURIComponent(parsed.doi), {
+        signal: AbortSignal.timeout(8000)
+      });
+      const doiCheckData = doiCheckResp.ok ? await doiCheckResp.json() : null;
+      if (doiCheckData && doiCheckData.responseCode === 1) {
+        // DOI resolves — it's just not in CrossRef
+        result.status = 'warn';
+        result.notes.push('DOI resolves at doi.org but is not registered in CrossRef');
+        result.notes.push('The article exists but may be in a database not covered by this tool');
+        result.notes.push('Manual verification recommended');
+        return result;
+      }
+    } catch(e) { /* network error — fall through to fabricated */ }
+    result.status = 'error';
+    result.notes.push('DOI does not resolve and no matching record found in academic databases');
+    result.notes.push('Reference may be fabricated');
+  } else if (parsed.doi && looksLikeBookFinal) {
+    result.status = 'warn';
+    result.notes.push('DOI not found in CrossRef and book not matched in Open Library or Google Books');
+    result.notes.push('The book may exist but is not well indexed \u2014 manual verification recommended');
+  } else {
+    result.status = 'warn';
+    result.notes.push('No matching record found in any database (CrossRef, OpenAlex, Semantic Scholar, Open Library, Google Books, arXiv)');
+    result.notes.push('This may be a book, report, newspaper/news article, or other non-indexed source \u2014 manual verification recommended');
+  }
+  return result;
+}
+
+function sourceLabel(src) {
+  const labels = {
+    'crossref-doi': 'CrossRef (DOI)',
+    'crossref': 'CrossRef',
+    'openalex': 'OpenAlex',
+    'semantic-scholar': 'Semantic Scholar',
+    'open-library': 'Open Library',
+    'google-books': 'Google Books',
+    'arxiv': 'arXiv'
+  };
+  return labels[src] || src;
+}
+
+/* ============================================
+   DUPLICATE DETECTION
+   ============================================ */
+function detectDuplicates(results) {
+  const n = results.length;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const a = results[i], b = results[j];
+      if (!a.parsed || !b.parsed) continue;
+
+      let isDup = false;
+      let reason = '';
+
+      // Check 1: Same DOI
+      if (a.parsed.doi && b.parsed.doi && a.parsed.doi === b.parsed.doi) {
+        isDup = true;
+        reason = 'same DOI as entry #' + (i + 1) + ' (' + shortLabel(a.parsed) + ')';
+      }
+
+      // Check 2: Same DOI found via verification — but only if both matches were confident
+      if (!isDup && a.found?.doi && b.found?.doi && a.found.doi === b.found.doi && a.found.doi !== '') {
+        const aConfident = a.found._titleSim >= 0.65 || a.found.source === 'crossref-doi' || a.found.source === 'doi.org';
+        const bConfident = b.found._titleSim >= 0.65 || b.found.source === 'crossref-doi' || b.found.source === 'doi.org';
+        if (aConfident && bConfident) {
+          isDup = true;
+          reason = 'resolves to same work as entry #' + (i + 1) + ' (' + shortLabel(a.parsed) + ')';
+        }
+      }
+
+      // Check 3: Very similar titles + same first author
+      if (!isDup && a.parsed.title && b.parsed.title) {
+        const tSim = titleSimilarity(a.parsed.title, b.parsed.title);
+        const sameAuthor = firstAuthorMatch(a.parsed.authors, b.parsed.authors);
+        if (tSim >= 0.85 && sameAuthor === true) {
+          isDup = true;
+          reason = 'appears to be the same work as entry #' + (i + 1) + ' (' + shortLabel(a.parsed) + ')';
+        }
+      }
+
+      if (isDup) {
+        // Mark the second occurrence as a duplicate — always error
+        b.status = 'error';
+        b.notes.unshift('DUPLICATE: ' + reason);
+      }
+    }
+  }
+}
+
+/* ============================================
+   CONCURRENCY CONTROL
+   ============================================ */
+async function runConcurrent(tasks, limit) {
+  const results = new Array(tasks.length);
+  let idx = 0;
+  async function worker() {
+    while (idx < tasks.length) {
+      const i = idx++;
+      results[i] = await tasks[i](i);
+    }
+  }
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
+/* ============================================
+   MAIN FLOW
+   ============================================ */
+let _running = false;
+let _results = [];
+
+async function go() {
+  if (_running) return;
+  const txt = document.getElementById('refIn').value.trim();
+  if (!txt) { toast('Paste references first'); return; }
+
+  _running = true;
+  const refs = splitRefs(txt);
+  const parsed = refs.map(parseRef);
+
+  // UI setup
+  document.getElementById('goBtn').disabled = true;
+  document.getElementById('goBtn').textContent = 'Checking...';
+  document.getElementById('progCard').classList.add('on');
+  document.getElementById('resCard').classList.remove('on');
+  document.getElementById('pbar').style.width = '0%';
+  document.getElementById('ptxt').textContent = `Checking ${parsed.length} references...`;
+  document.getElementById('plive').innerHTML = '';
+  document.getElementById('progLabel').textContent = `Checking ${parsed.length} references...`;
+
+  // Initialize live list
+  const plive = document.getElementById('plive');
+  parsed.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'plive-item pending';
+    div.id = 'plive-' + i;
+    div.innerHTML = `<span class="icon">\u00B7</span><span class="text">${esc(shortLabel(p))}</span>`;
+    plive.appendChild(div);
+  });
+
+  let done = 0, ok = 0, warn = 0, err = 0;
+  _results = [];
+
+  const tasks = parsed.map((p, i) => async () => {
+    // Mark as checking
+    const li = document.getElementById('plive-' + i);
+    if (li) {
+      li.className = 'plive-item';
+      li.querySelector('.icon').innerHTML = '<span class="dot" style="width:10px;height:10px;border-width:1.5px;display:inline-block;vertical-align:middle;"></span>';
+    }
+
+    const result = await verifyRef(p);
+    _results[i] = result;
+    done++;
+
+    if (result.status === 'ok') ok++;
+    else if (result.status === 'warn') warn++;
+    else err++;
+
+    // Update live item
+    if (li) {
+      const icon = result.status === 'ok' ? '\u2705' : result.status === 'warn' ? '\u26A0\uFE0F' : '\u274C';
+      li.className = 'plive-item';
+      li.querySelector('.icon').textContent = icon;
+      // Auto-scroll
+      plive.scrollTop = plive.scrollHeight;
+    }
+
+    // Update progress
+    const pct = Math.round((done / parsed.length) * 100);
+    document.getElementById('pbar').style.width = pct + '%';
+    document.getElementById('ptxt').textContent = `${done}/${parsed.length} Checked \u2014 ${ok} Verified, ${warn} Uncertain, ${err} Errors`;
+  });
+
+  await runConcurrent(tasks, MAX_CONCURRENT);
+
+  // Post-processing: detect duplicate references
+  detectDuplicates(_results);
+
+  // Show results
+  document.getElementById('progCard').classList.remove('on');
+  showResults(_results);
+
+  _running = false;
+  document.getElementById('goBtn').disabled = false;
+  document.getElementById('goBtn').textContent = 'Check References';
+}
+
+/* ============================================
+   RESULTS DISPLAY
+   ============================================ */
+function showResults(results) {
+  const card = document.getElementById('resCard');
+  card.classList.add('on');
+
+  const ok = results.filter(r => r.status === 'ok').length;
+  const warn = results.filter(r => r.status === 'warn').length;
+  const err = results.filter(r => r.status === 'error').length;
+
+  document.getElementById('sumRow').innerHTML = `
+    <div class="pill p-all"><span class="n">${results.length}</span> Checked</div>
+    <div class="pill p-ok"><span class="n">${ok}</span> Verified</div>
+    <div class="pill p-warn"><span class="n">${warn}</span> Uncertain</div>
+    <div class="pill p-err"><span class="n">${err}</span> Errors</div>`;
+
+  renderEntries(results, 'all');
+
+  // Build raw text grouped by status
+  window._allResults = results;
+  updateRawText('all');
+
+  card.scrollIntoView({ behavior: 'smooth' });
+}
+
+function renderEntries(results, filter) {
+  const body = document.getElementById('resBody');
+  body.innerHTML = '';
+
+  const list = filter === 'all' ? results : results.filter(r =>
+    filter === 'ok' ? r.status === 'ok' :
+    filter === 'warn' ? r.status === 'warn' :
+    r.status === 'error'
+  );
+
+  if (!list.length) {
+    body.innerHTML = '<p style="color:var(--brown-light);text-align:center;padding:40px;">No entries match this filter.</p>';
+    return;
+  }
+
+  list.forEach(r => {
+    const div = document.createElement('div');
+    const cls = r.status === 'ok' ? 'e-ok' : r.status === 'warn' ? 'e-warn' : 'e-err';
+    div.className = 'entry ' + cls;
+
+    const icon = r.status === 'ok' ? '\u2705' : r.status === 'warn' ? '\u26A0\uFE0F' : '\u274C';
+
+    let notesHtml = '';
+    if (r.notes.length) {
+      notesHtml = '<div class="ann">' + r.notes.map(n => {
+        let cls = '';
+        if (n.includes('match') && !n.includes('mismatch') && !n.includes('does not match')) cls = 'match';
+        if (n.includes('mismatch') || n.includes('not found') || n.includes('fabricated') || n.includes('does not match') || n.includes('does not resolve')) cls = 'mismatch';
+        if (n.startsWith('DUPLICATE:')) cls = 'mismatch';
+        if (n.includes('via ') || n.includes('DOI verified')) cls = 'source';
+        return `<div class="ann-line ${cls}">\u2192 ${esc(n)}</div>`;
+      }).join('') + '</div>';
+    }
+
+    // Found record details (skip for duplicates — the DUPLICATE note is enough)
+    let foundHtml = '';
+    const isDuplicate = r.notes.some(n => n.startsWith('DUPLICATE:'));
+    if (r.found && r.found.title && !isDuplicate) {
+      const f = r.found;
+      const isGoodMatch = f._titleSim >= 0.65 || r.status === 'ok' || f.source === 'crossref-doi';
+
+      // Build full record details for all matches (good, moderate, or weak)
+      let details = [];
+      if (f.title) details.push('<strong>Title:</strong> ' + esc(f.title));
+      if (f.authors) details.push('<strong>Authors:</strong> ' + esc(f.authors.substring(0, 120)));
+      if (f.year) details.push('<strong>Year:</strong> ' + f.year);
+      if (f.journal) {
+        const cLabel = containerLabel(r.parsed, f);
+        const cLabelCap = cLabel.charAt(0).toUpperCase() + cLabel.slice(1);
+        details.push('<strong>' + cLabelCap + ':</strong> ' + esc(f.journal));
+      }
+      if (f.doi) {
+        const refDoi = r.parsed?.doi?.toLowerCase() || '';
+        const foundDoi = f.doi.toLowerCase();
+        if (refDoi && refDoi === foundDoi) {
+          // Same DOI — show as confirmed link
+          details.push(`<a href="https://doi.org/${esc(f.doi)}" target="_blank" rel="noopener">doi:${esc(f.doi)}</a>`);
+        } else if (refDoi && refDoi !== foundDoi) {
+          // Reference has a different DOI — show the database DOI for comparison
+          details.push(`<strong>DOI in database:</strong> <a href="https://doi.org/${esc(f.doi)}" target="_blank" rel="noopener">${esc(f.doi)}</a>`);
+        }
+        // If reference has NO DOI, don't show the found DOI — it may point to a different chapter/version
+      }
+      if (details.length > 0) {
+        const opacity = isGoodMatch ? '' : ' style="opacity:0.85;"';
+        const label = isGoodMatch ? '' : '<strong>Closest match:</strong> ';
+        foundHtml = '<div class="found-record"' + opacity + '>' + label + details.join(' &middot; ') + '</div>';
+      }
+    }
+
+    div.innerHTML = `<div class="ref">${icon} ${esc(r.ref)}</div>${notesHtml}${foundHtml}`;
+    body.appendChild(div);
+  });
+}
+
+/* ============================================
+   UI HELPERS
+   ============================================ */
+function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('on'); setTimeout(() => t.classList.remove('on'), 2200); }
+function clr() {
+  document.getElementById('refIn').value = '';
+  uc();
+  // Reset everything to initial state
+  _results = [];
+  document.getElementById('resCard').classList.remove('on');
+  document.getElementById('progCard').classList.remove('on');
+  document.getElementById('resBody').innerHTML = '';
+  document.getElementById('resBody').style.display = '';
+  document.getElementById('sumRow').innerHTML = '';
+  document.getElementById('rawBox').innerHTML = '';
+  document.getElementById('rawWrap').classList.remove('on');
+  document.getElementById('rawBtn').classList.remove('active');
+  _currentFilter = 'all';
+  document.querySelectorAll('.fp').forEach((x, i) => x.classList.toggle('on', i === 0));
+}
+
+function uc() {
+  const t = document.getElementById('refIn').value;
+  const refs = splitRefs(t);
+  document.getElementById('hint').textContent = refs.length > 0 ? refs.length + ' references detected' : '';
+  document.getElementById('goBtn').disabled = !t.trim();
+}
+
+let _currentFilter = 'all';
+function filt(f, btn) {
+  document.querySelectorAll('.fp').forEach(x => x.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  _currentFilter = f;
+  if (_results.length) renderEntries(_results, f);
+  updateRawText(f);
+  // If Raw is open, keep card list hidden
+  const rawOpen = document.getElementById('rawWrap').classList.contains('on');
+  document.getElementById('resBody').style.display = rawOpen ? 'none' : '';
+}
+
+function updateRawText(filter) {
+  const results = window._allResults || _results;
+  if (!results.length) return;
+
+  function buildBlock(list) {
+    return list.map(r => r.ref).join('\n\n');
+  }
+
+  let rawText;
+  if (filter === 'all') {
+    const errs = results.filter(r => r.status === 'error');
+    const warns = results.filter(r => r.status === 'warn');
+    const oks = results.filter(r => r.status === 'ok');
+    const sections = [];
+    if (errs.length) sections.push('=== ERRORS (' + errs.length + ') ===\n\n' + buildBlock(errs));
+    if (warns.length) sections.push('=== UNCERTAIN (' + warns.length + ') ===\n\n' + buildBlock(warns));
+    if (oks.length) sections.push('=== VERIFIED (' + oks.length + ') ===\n\n' + buildBlock(oks));
+    rawText = sections.join('\n\n\n');
+  } else {
+    const filtered = results.filter(r =>
+      filter === 'ok' ? r.status === 'ok' :
+      filter === 'warn' ? r.status === 'warn' :
+      r.status === 'error'
+    );
+    rawText = buildBlock(filtered);
+  }
+  document.getElementById('rawBox').textContent = rawText;
+}
+
+function toggleRaw() {
+  const wrap = document.getElementById('rawWrap');
+  const body = document.getElementById('resBody');
+  const btn = document.getElementById('rawBtn');
+  const isOpen = wrap.classList.toggle('on');
+  body.style.display = isOpen ? 'none' : '';
+  btn.classList.toggle('active', isOpen);
+  // Always refresh raw content for current filter
+  updateRawText(_currentFilter);
+}
+function copyRaw() {
+  navigator.clipboard.writeText(document.getElementById('rawBox').textContent)
+    .then(() => toast('Copied to clipboard'));
+}
+
+function copyRes() {
+  navigator.clipboard.writeText(document.getElementById('rawBox').textContent)
+    .then(() => toast('Copied to clipboard'));
+}
+
+function exp() {
+  // Always export full grouped list regardless of current filter
+  updateRawText('all');
+  const text = document.getElementById('rawBox').textContent;
+  // Restore current filter view
+  updateRawText(_currentFilter);
+  const blob = new Blob([text], { type: 'text/markdown' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `reference-check-${new Date().toISOString().slice(0, 10)}.md`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Exported');
+}
+
+function loadSample() {
+  document.getElementById('refIn').value = `Bandura, A. (1977). Self-efficacy: Toward a unifying theory of behavioral change. Psychological Review, 84(2), 191\u2013215. https://doi.org/10.1037/0033-295X.84.2.191
+
+Kahneman, D., & Tversky, A. (1979). Prospect theory: An analysis of decision under risk. Econometrica, 47(2), 263\u2013292. https://doi.org/10.2307/1914185
+
+Smith, J. R., & Johnson, L. M. (2019). Neural correlates of creative insight in artificial intelligence systems. Journal of Computational Neuroscience, 45(3), 178\u2013195. https://doi.org/10.1016/j.jcn.2019.04.012
+
+Vygotsky, L. S. (1978). Mind in society: The development of higher psychological processes. Harvard University Press.
+
+Brown, T. B., Mann, B., Ryder, N., Subbiah, M., Kaplan, J., Dhariwal, P., ... & Amodei, D. (2020). Language models are few-shot learners. Advances in Neural Information Processing Systems, 33, 1877\u20131901.
+
+Kertesi, G., & K\u00E9zdi, G. (2011). The Roma/non-Roma test score gap in Hungary. American Economic Review, 101(3), 519\u2013525. https://doi.org/10.1257/aer.101.3.519
+
+Fikt\u00EDv, A., & Hamis, B. (2021). The role of quantum entanglement in post-socialist welfare regimes. European Sociological Review, 37(4), 612\u2013630. https://doi.org/10.1093/esr/jcab999`;
+  uc();
+}
+
+window.addEventListener('DOMContentLoaded', () => { uc(); });
+</script>
+</body>
+</html>

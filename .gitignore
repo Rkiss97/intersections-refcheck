@@ -1,0 +1,17 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Node / build artefacts (in case you ever add tooling)
+node_modules/
+*.log
+npm-debug.log*
+
+# Local test files (don't publish)
+test-*.js
+test-*.html
+/tmp/
