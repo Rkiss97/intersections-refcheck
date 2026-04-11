@@ -1,7 +1,7 @@
-# Intersections Reference Checker
+# Reference Checker — *Intersections. East European Journal of Society and Politics*
 
-Single-file, browser-based bibliographic reference checker for the Intersections journal editorial team. Verifies references against CrossRef, OpenAlex, Semantic Scholar, Open Library, Google Books, and arXiv.
+A single-file, browser-based tool for the editorial team of *Intersections. East European Journal of Society and Politics*. It verifies bibliographic references against CrossRef, OpenAlex, Semantic Scholar, Open Library, Google Books, and arXiv.
 
 Live: https://rkiss97.github.io/intersections-refcheck/
 
-Supports OSCOLA, APA / Harvard, Chicago, and MLA styles. Mixed lists are handled automatically. No build step, no backend, no API keys.
+Supports OSCOLA, APA / Harvard, Chicago, and MLA citation styles, including mixed reference lists. Runs entirely in the browser — no build step, no backend, no API keys.
