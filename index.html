@@ -872,8 +872,10 @@ function splitInlineRefs(txt) {
 
   // Pattern 1: APA-style — Surname, F. ... (Year)
   // Also matches lowercase particle surnames: "van Leeuwen, T." / "de Graaf, J."
+  // The trailing initial allows extended-Latin caps (Ş, Ç, Ö, Ü, Ğ, İ, Á, É, etc.)
+  // so refs like "Açıkalın, Ş. N." or "Çelik, Ç." are recognised at split boundaries.
   const apaRe = new RegExp(
-    '(?:[A-Z\\u00C0-\\u024F][a-z\\u00C0-\\u024F]+(?:[-\'][A-Z]?[a-z\\u00C0-\\u024F]*)?|(?:' + LOWERCASE_PARTICLES + ')\\s+[A-Z\\u00C0-\\u024F][a-z\\u00C0-\\u024F]+(?:[-\'][A-Z]?[a-z\\u00C0-\\u024F]*)?),\\s+[A-Z]\\.',
+    '(?:[A-Z\\u00C0-\\u024F][a-z\\u00C0-\\u024F]+(?:[-\'][A-Z]?[a-z\\u00C0-\\u024F]*)?|(?:' + LOWERCASE_PARTICLES + ')\\s+[A-Z\\u00C0-\\u024F][a-z\\u00C0-\\u024F]+(?:[-\'][A-Z]?[a-z\\u00C0-\\u024F]*)?),\\s+[A-Z\\u00C0-\\u024F]\\.',
     'g'
   );
   while ((m = apaRe.exec(txt)) !== null) {
@@ -881,7 +883,9 @@ function splitInlineRefs(txt) {
     if (pos === 0) { starts.push(pos); continue; }
     const beforeWide = txt.substring(Math.max(0, pos - 10), pos);
     if (/[&]\s*$/.test(beforeWide) || /\band\s+$/i.test(beforeWide)) continue;
-    if (/[A-Z]\.,\s*$/.test(beforeWide)) continue;
+    // Guard against splitting at mid-list co-authors. Allow extended-Latin initials
+    // (Ş., Ç., Ö., etc.) so refs with Turkish authors don't over-split.
+    if (/[A-Z\u00C0-\u024F]\.,\s*$/.test(beforeWide)) continue;
     const before = txt.substring(Math.max(0, pos - 3), pos);
     if (/[.)\/\s]\s*$/.test(before)) {
       const after = txt.substring(pos, pos + 200);
@@ -914,12 +918,50 @@ function splitInlineRefs(txt) {
     }
   }
 
+  // Pattern 1b: ALL-CAPS surnames followed by initial — "SEFER AKTAŞ, A." or "ÖZÇELİK, H."
+  // Used by Turkish and some Arabic transliteration journals where surnames are uppercased.
+  // Allows 1-2 word surnames; trailing initial may be ASCII or extended-Latin.
+  const allCapsRe = /[A-Z\u00C0-\u024F]{2,}(?:\s+[A-Z\u00C0-\u024F]{2,}){0,2},\s+[A-Z\u00C0-\u024F]\./g;
+  while ((m = allCapsRe.exec(txt)) !== null) {
+    const pos = m.index;
+    if (starts.includes(pos)) continue;
+    if (pos === 0) { starts.push(pos); continue; }
+    const beforeWide = txt.substring(Math.max(0, pos - 10), pos);
+    if (/[&]\s*$/.test(beforeWide) || /\band\s+$/i.test(beforeWide)) continue;
+    if (/[A-Z\u00C0-\u024F]\.,\s*$/.test(beforeWide)) continue;
+    const before = txt.substring(Math.max(0, pos - 3), pos);
+    if (/[.)\/\s]\s*$/.test(before)) {
+      const after = txt.substring(pos, pos + 250);
+      if (/\(\d{4}\)/.test(after)) starts.push(pos);
+    }
+  }
+
   // Pattern 3: Organization abbreviations "HRW." "ICRC." "UN." followed by (Year)
   const orgRe = /[A-Z]{2,}\.\s*\(\d{4}\)/g;
   while ((m = orgRe.exec(txt)) !== null) {
     const pos = m.index;
     if (pos === 0 || /[.)\/\s]\s*$/.test(txt.substring(Math.max(0, pos - 3), pos))) {
       if (!starts.includes(pos)) starts.push(pos);
+    }
+  }
+
+  // Pattern 3b: Multi-word title-case organizational author followed by ". (Year)"
+  // e.g. "European Commission. (2017)", "World Health Organization. (2020)",
+  // "International Monetary Fund. (2019)". The ". (YYYY)" sequence is highly specific
+  // to org-as-author APA refs — journal names don't typically appear in this position.
+  // 2-5 capitalized words, optionally connected by lowercase glue (and/of/for/on/the).
+  const orgMultiRe = /[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+(?:\s+(?:and|of|for|on|the)\s+[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+|\s+[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+){1,5}\.\s*\(\d{4}[a-z]?\)/g;
+  while ((m = orgMultiRe.exec(txt)) !== null) {
+    const pos = m.index;
+    if (starts.includes(pos)) continue;
+    if (pos === 0) { starts.push(pos); continue; }
+    const before = txt.substring(Math.max(0, pos - 3), pos);
+    // Must be preceded by a strong boundary (URL end, period+space, closing paren+space)
+    if (/[.)\/\s]\s*$/.test(before)) {
+      // Reject if the previous chunk ends with a comma+space (likely co-author or list continuation)
+      const beforeWide = txt.substring(Math.max(0, pos - 5), pos);
+      if (/,\s*$/.test(beforeWide)) continue;
+      starts.push(pos);
     }
   }
 
