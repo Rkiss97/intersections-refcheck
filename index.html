@@ -308,8 +308,17 @@ textarea.ri::placeholder{color:var(--brown-light);font-family:'Inter',sans-serif
   .header,.wrap{padding-left:20px;padding-right:20px;}
   .srow{flex-direction:column;gap:8px;}
   .header{height:60px;}
+  .header-left{gap:12px;}
   .header-left img{height:36px;}
+  .header-left .title{font-size:14px;}
   .header-right .info{display:none;}
+}
+@media(max-width:480px){
+  .header{padding-left:12px;padding-right:12px;}
+  .header-left{gap:8px;}
+  .header-left .sep{display:none;}
+  .header-left .title{font-size:12px;}
+  .header-left img{height:30px;}
 }
 </style>
 </head>
