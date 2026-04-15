@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reference Checker / Intersections</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -87,6 +87,23 @@ body{
 
 .header-right{display:flex;gap:8px;align-items:center;}
 .header-right .info{font-size:12px;color:var(--brown-light);font-weight:300;max-width:340px;text-align:right;line-height:1.45;}
+
+/* Tabs */
+.tab-bar{
+  display:flex;gap:6px;max-width:1000px;margin:0 auto;padding:20px 48px 0;
+  border-bottom:1px solid var(--wine-border);
+}
+.tab-btn{
+  padding:11px 28px 10px;font-size:13px;font-weight:400;font-family:inherit;
+  cursor:pointer;border:none;letter-spacing:0.3px;
+  background:transparent;color:var(--brown-light);
+  border-bottom:2px solid transparent;
+  transition:all .2s;text-transform:uppercase;
+}
+.tab-btn:hover{color:var(--wine-light);}
+.tab-btn.active{color:var(--wine);font-weight:500;border-bottom-color:var(--wine);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
 
 /* Layout */
 .wrap{
@@ -295,6 +312,38 @@ textarea.ri::placeholder{color:var(--brown-light);font-family:'Inter',sans-serif
   color:var(--brown);
 }
 
+/* Style Checker */
+.sc-ref{
+  padding:16px 20px;margin-bottom:12px;border-radius:5px;
+  border-left:3px solid;font-size:14px;line-height:1.75;
+}
+.sc-ref.sc-ok{background:var(--ok-bg);border-color:var(--ok);}
+.sc-ref.sc-fix{background:var(--warn-bg);border-color:var(--warn);}
+.sc-ref .sc-original{
+  font-family:'SF Mono','JetBrains Mono','Consolas',monospace;
+  font-size:13px;word-break:break-word;color:var(--brown);
+  text-decoration:line-through;opacity:.65;margin-bottom:8px;
+}
+.sc-ref .sc-corrected{
+  font-family:'SF Mono','JetBrains Mono','Consolas',monospace;
+  font-size:13px;word-break:break-word;
+}
+.sc-ref .sc-issues{
+  margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.06);
+  font-size:12px;color:var(--brown);
+}
+.sc-ref .sc-issues li{margin-bottom:3px;list-style:none;}
+.sc-ref .sc-issues li::before{content:'→ ';color:var(--warn);}
+.sc-ref.sc-ok .sc-issues li::before{content:'✓ ';color:var(--ok);}
+.sc-diff-add{background:#d4edda;padding:1px 2px;border-radius:2px;}
+.sc-diff-del{background:#f8d7da;padding:1px 2px;border-radius:2px;text-decoration:line-through;}
+.sc-summary{
+  display:flex;gap:12px;padding:16px 24px;border-bottom:1px solid var(--wine-border);flex-wrap:wrap;
+}
+.sc-copy-bar{
+  display:flex;justify-content:flex-end;gap:8px;margin:16px 24px 0;
+}
+
 /* Toast */
 .toast{
   position:fixed;bottom:24px;right:24px;padding:10px 20px;
@@ -306,7 +355,9 @@ textarea.ri::placeholder{color:var(--brown-light);font-family:'Inter',sans-serif
 
 @media(max-width:768px){
   .header,.wrap{padding-left:20px;padding-right:20px;}
-  .srow{flex-direction:column;gap:8px;}
+  .tab-bar{padding:0 20px;gap:0;}
+  .tab-btn{padding:10px 18px;font-size:12px;}
+  .srow,.sc-summary{flex-direction:column;gap:8px;}
   .header{height:60px;}
   .header-left{gap:12px;}
   .header-left img{height:36px;}
@@ -319,6 +370,8 @@ textarea.ri::placeholder{color:var(--brown-light);font-family:'Inter',sans-serif
   .header-left .sep{display:none;}
   .header-left .title{font-size:12px;}
   .header-left img{height:30px;}
+  .tab-bar{padding:0 12px;gap:0;}
+  .tab-btn{padding:8px 12px;font-size:11px;}
 }
 </style>
 </head>
@@ -335,6 +388,12 @@ textarea.ri::placeholder{color:var(--brown-light);font-family:'Inter',sans-serif
   </div>
 </div>
 
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('checker',this)">Reference Checker</button>
+  <button class="tab-btn" onclick="switchTab('style',this)">Style Formatter</button>
+</div>
+
+<div id="tab-checker" class="tab-panel active">
 <div class="wrap">
 
   <!-- Input card -->
@@ -388,6 +447,49 @@ textarea.ri::placeholder{color:var(--brown-light);font-family:'Inter',sans-serif
   </div>
 
 </div>
+</div><!-- /tab-checker -->
+
+<div id="tab-style" class="tab-panel">
+<div class="wrap">
+
+  <!-- Style Checker Input -->
+  <div class="card">
+    <div class="card-h">
+      <span class="label">Paste reference list</span>
+      <div style="display:flex;gap:6px;">
+        <button class="btn" onclick="scClear()">Clear</button>
+      </div>
+    </div>
+    <div class="card-b">
+      <textarea class="ri" id="scIn" placeholder="Paste your reference list here to check and auto-format according to Intersections house style (APA)..." oninput="scUpdate()"></textarea>
+    </div>
+    <div class="card-foot">
+      <span class="hint" id="scHint"></span>
+      <button class="btn btn-go" id="scGoBtn" onclick="scGo()" disabled>Check Style</button>
+    </div>
+  </div>
+
+  <!-- Style Checker Results -->
+  <div class="card res" id="scResCard">
+    <div class="card-h">
+      <span class="label">Style check results</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <div class="flts">
+          <button class="fp on" onclick="scFilt('all',this)">All</button>
+          <button class="fp" onclick="scFilt('ok',this)">OK</button>
+          <button class="fp" onclick="scFilt('fix',this)">Fixed</button>
+        </div>
+      </div>
+    </div>
+    <div class="sc-summary" id="scSummary"></div>
+    <div class="sc-copy-bar">
+      <button class="btn" onclick="scCopyAll()">Copy corrected list</button>
+    </div>
+    <div class="rbody" id="scBody"></div>
+  </div>
+
+</div>
+</div><!-- /tab-style -->
 
 <div class="toast" id="toast"></div>
 
@@ -3187,6 +3289,342 @@ Fikt\u00EDv, A., & Hamis, B. (2021). The role of quantum entanglement in post-so
 }
 
 window.addEventListener('DOMContentLoaded', () => { uc(); });
+
+/* ============================================
+   TAB SWITCHING
+   ============================================ */
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ============================================
+   STYLE FORMATTER — Intersections House Style (APA)
+   ============================================ */
+
+// State
+let scResults = [];
+
+function scClear() {
+  document.getElementById('scIn').value = '';
+  document.getElementById('scResCard').classList.remove('on');
+  scResults = [];
+  scUpdate();
+}
+
+function scUpdate() {
+  const v = document.getElementById('scIn').value.trim();
+  const refs = v ? splitRefs(v) : [];
+  document.getElementById('scHint').textContent = refs.length ? refs.length + ' references detected' : '';
+  document.getElementById('scGoBtn').disabled = refs.length < 1;
+}
+
+function scFilt(type, btn) {
+  btn.parentElement.querySelectorAll('.fp').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  document.querySelectorAll('#scBody .sc-ref').forEach(el => {
+    if (type === 'all') el.style.display = '';
+    else if (type === 'ok') el.style.display = el.classList.contains('sc-ok') ? '' : 'none';
+    else if (type === 'fix') el.style.display = el.classList.contains('sc-fix') ? '' : 'none';
+  });
+}
+
+function scCopyAll() {
+  if (!scResults.length) return;
+  const text = scResults.map(r => r.corrected).join('\n');
+  navigator.clipboard.writeText(text).then(() => showToast('Corrected list copied to clipboard'));
+}
+
+function scGo() {
+  const v = document.getElementById('scIn').value.trim();
+  const refs = splitRefs(v);
+  if (!refs.length) return;
+
+  scResults = refs.map(ref => checkStyle(ref));
+
+  const nOk = scResults.filter(r => r.issues.length === 0).length;
+  const nFix = scResults.filter(r => r.issues.length > 0).length;
+
+  // Summary
+  document.getElementById('scSummary').innerHTML =
+    `<div class="pill p-all"><span class="n">${scResults.length}</span> Total</div>` +
+    `<div class="pill p-ok"><span class="n">${nOk}</span> OK</div>` +
+    `<div class="pill p-warn"><span class="n">${nFix}</span> Fixed</div>`;
+
+  // Render
+  const body = document.getElementById('scBody');
+  body.innerHTML = '';
+  scResults.forEach((r, i) => {
+    const cls = r.issues.length === 0 ? 'sc-ok' : 'sc-fix';
+    const div = document.createElement('div');
+    div.className = 'sc-ref ' + cls;
+
+    let html = '';
+    if (r.issues.length > 0) {
+      html += `<div class="sc-original">${esc(r.original)}</div>`;
+      html += `<div class="sc-corrected">${highlightDiff(r.original, r.corrected)}</div>`;
+      html += `<ul class="sc-issues">`;
+      r.issues.forEach(iss => { html += `<li>${esc(iss)}</li>`; });
+      html += `</ul>`;
+    } else {
+      html += `<div class="sc-corrected">${esc(r.corrected)}</div>`;
+      html += `<ul class="sc-issues"><li>Formatting OK</li></ul>`;
+    }
+    div.innerHTML = html;
+    body.appendChild(div);
+  });
+
+  document.getElementById('scResCard').classList.add('on');
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ---------- Diff highlighting ---------- */
+function highlightDiff(orig, corr) {
+  // Simple word-level diff for visual highlighting
+  const ow = orig.split(/(\s+)/);
+  const cw = corr.split(/(\s+)/);
+  // If lengths differ significantly, just show corrected with green bg
+  if (Math.abs(ow.length - cw.length) > ow.length * 0.5) {
+    return `<span class="sc-diff-add">${esc(corr)}</span>`;
+  }
+  let html = '';
+  const maxLen = Math.max(ow.length, cw.length);
+  let ci = 0, oi = 0;
+  // Simple aligned diff
+  while (ci < cw.length) {
+    if (oi < ow.length && cw[ci] === ow[oi]) {
+      html += esc(cw[ci]);
+      ci++; oi++;
+    } else {
+      html += `<span class="sc-diff-add">${esc(cw[ci])}</span>`;
+      ci++;
+      if (oi < ow.length) oi++;
+    }
+  }
+  return html;
+}
+
+/* ---------- Core style checking / fixing ---------- */
+function checkStyle(ref) {
+  const issues = [];
+  let s = ref.trim();
+  const orig = s;
+
+  // --- Rule 1: Hyphens → en-dashes in page ranges ---
+  // Matches "pp. 55-70", "11(3-4), 315-346", standalone "612-630"
+  // But NOT: dates (07-05-2021), URLs/DOIs, or word-internal hyphens (Anti-Immigration)
+  const dashFixed = s.replace(/(\d)\s*-\s*(\d)/g, (m, a, b, offset) => {
+    // Don't convert inside URLs or DOIs
+    const ctxBefore = s.substring(Math.max(0, offset - 60), offset);
+    if (/https?:\/\/\S*$/.test(ctxBefore) || /doi\.org\S*$/.test(ctxBefore)) return m;
+    // Don't convert date-like patterns (near Accessed/Retrieved)
+    const ctx = s.substring(Math.max(0, offset - 30), offset + m.length + 15);
+    if (/Accessed|Retrieved/i.test(ctx)) return m;
+    // Skip DD-MM-YYYY patterns
+    const dateCtx = s.substring(Math.max(0, offset - 3), offset + m.length + 8);
+    if (/\d{1,2}-\d{1,2}-\d{4}/.test(dateCtx)) return m;
+    return a + '\u2013' + b;
+  });
+  if (dashFixed !== s) {
+    issues.push('Page ranges: replaced hyphens with en-dashes (\u2013)');
+    s = dashFixed;
+  }
+
+  // --- Rule 2: "and" → "&" between authors (before year) ---
+  // Only replace "and" that appears before the (Year) in author position
+  const yearIdx = s.search(/\(\d{4}[a-z]?\)/);
+  if (yearIdx > 0) {
+    const authorPart = s.substring(0, yearIdx);
+    const rest = s.substring(yearIdx);
+    // Replace " and " with " & " in author section, but not inside titles
+    // Only if preceded by initial-like pattern: "F. and" or ", and"
+    const authFixed = authorPart.replace(/(\w\.)\s+and\s+/g, '$1 & ').replace(/,\s+and\s+/g, ', & ');
+    if (authFixed !== authorPart) {
+      issues.push('Authors: replaced "and" with "&"');
+      s = authFixed + rest;
+    }
+  }
+
+  // --- Rule 3: Double quotes → single quotes around titles ---
+  // "title" → 'title' and "title" → 'title' (smart quotes too)
+  const dqFixed = s
+    .replace(/\u201C/g, '\u2018')  // " → '
+    .replace(/\u201D/g, '\u2019')  // " → '
+    .replace(/"([^"]{5,})"/g, '\u2018$1\u2019');  // "text" → 'text'
+  if (dqFixed !== s) {
+    issues.push('Quotation marks: replaced double quotes with single quotes');
+    s = dqFixed;
+  }
+
+  // --- Rule 4: DOI formatting ---
+  // doi:10.xxx → https://doi.org/10.xxx
+  // http://dx.doi.org/ → https://doi.org/
+  const doiFixed = s
+    .replace(/\bdoi\s*:\s*(10\.\S+)/gi, 'https://doi.org/$1')
+    .replace(/http:\/\/dx\.doi\.org\//g, 'https://doi.org/')
+    .replace(/http:\/\/doi\.org\//g, 'https://doi.org/')
+    .replace(/https:\/\/dx\.doi\.org\//g, 'https://doi.org/')
+    // Fix duplicate prefix: https://doi.org/https://doi.org/10.xxx → https://doi.org/10.xxx
+    .replace(/https:\/\/doi\.org\/https?:\/\/doi\.org\//g, 'https://doi.org/')
+    .replace(/https:\/\/doi\.org\/https?:\/\/dx\.doi\.org\//g, 'https://doi.org/');
+  if (doiFixed !== s) {
+    issues.push('DOI: standardized to https://doi.org/ format');
+    s = doiFixed;
+  }
+
+  // --- Rule 5: Accessed date format ---
+  // "Accessed: 07-05-2021" is correct Intersections format
+  // Fix common variants: "Accessed 07-05-2021", "Retrieved 07-05-2021", "accessed: ..."
+  // Also fix "Accessed: 2021-05-07" (ISO) or "Accessed: May 7, 2021" (prose)
+  const accFixed = s
+    // "Retrieved" → "Accessed"
+    .replace(/\bRetrieved\s*(?:on\s+|from\s+)?(\d{1,2}[\s./-]\d{1,2}[\s./-]\d{4})/gi, 'Accessed: $1')
+    .replace(/\bRetrieved\s*:\s*/gi, 'Accessed: ')
+    // Ensure "Accessed:" has colon and space
+    .replace(/\bAccessed\s+(\d)/gi, 'Accessed: $1')
+    // Fix dot separators in dates: "07.05.2021" → "07-05-2021"
+    .replace(/(Accessed:\s*\d{1,2})\.(\d{1,2})\.(\d{4})/g, '$1-$2-$3')
+    // Fix slash separators: "07/05/2021" → "07-05-2021"
+    .replace(/(Accessed:\s*\d{1,2})\/(\d{1,2})\/(\d{4})/g, '$1-$2-$3');
+  if (accFixed !== s) {
+    issues.push('Access date: standardized to "Accessed: DD-MM-YYYY" format');
+    s = accFixed;
+  }
+
+  // --- Rule 6a: Year not in parentheses — "Author. 2022. Title" → "Author. (2022). Title" ---
+  // APA requires year in parentheses. Detect bare years after author initials/names.
+  // Pattern: period/comma + space + 4-digit year + period/comma/space (not inside a URL)
+  const bareYrFixed = s.replace(/([\.,]\s+)((?:19|20)\d{2})(\.\s+)/g, (m, pre, yr, post, offset) => {
+    // Don't touch if already in parentheses
+    const charBefore = s[Math.max(0, offset + pre.length - 1)] || '';
+    if (charBefore === '(') return m;
+    // Don't touch inside URLs
+    const ctx = s.substring(Math.max(0, offset - 40), offset);
+    if (/https?:\/\//.test(ctx) || /doi\.org/.test(ctx)) return m;
+    // Don't touch if the year is followed by a comma and looks like a date ("2014, November")
+    const after = s.substring(offset + m.length - 1, offset + m.length + 15);
+    if (/^\s*[A-Z][a-z]/.test(after) && /,\s*$/.test(m)) return m;
+    return pre + '(' + yr + ')' + post;
+  });
+  if (bareYrFixed !== s) {
+    issues.push('Year: added missing parentheses around year \u2014 APA requires (Year)');
+    s = bareYrFixed;
+  }
+
+  // --- Rule 6b: Year formatting — (YYYY). ---
+  // Missing period after year+closing paren: "(2020) Title" → "(2020). Title"
+  const yrFixed = s.replace(/(\(\d{4}[a-z]?\))\s+([A-Z\u00C0-\u024F])/g, '$1. $2');
+  if (yrFixed !== s) {
+    issues.push('Year: added missing period after (Year)');
+    s = yrFixed;
+  }
+
+  // --- Rule 7: Ending period ---
+  // Reference should end with period (or DOI URL, or Accessed date)
+  const trimmed = s.replace(/\s+$/, '');
+  if (!/[.)]$/.test(trimmed) && !/https?:\/\/\S+$/.test(trimmed) && !/\d{4}$/.test(trimmed)) {
+    s = trimmed + '.';
+    issues.push('Added missing period at end of reference');
+  }
+
+  // --- Rule 8: "(Eds.)" formatting ---
+  // Fix "(eds.)" → "(Eds.)" and "(ed.)" → "(Ed.)"
+  const edFixed = s
+    .replace(/\(eds?\.\)/gi, (m) => m.length === 5 ? '(Ed.)' : '(Eds.)')
+    .replace(/\(ED\.\)/g, '(Ed.)')
+    .replace(/\(EDS\.\)/g, '(Eds.)');
+  if (edFixed !== s) {
+    issues.push('Editor notation: standardized to (Ed.)/(Eds.)');
+    s = edFixed;
+  }
+
+  // --- Rule 9: "p." / "pp." formatting ---
+  // "p.55" → "p. 55", "pp.55" → "pp. 55"
+  // But NOT inside URLs/DOIs — check that the match is not preceded by / or .org/ etc.
+  const ppFixed = s.replace(/\b(pp?)\.(\d)/g, (m, p, d, offset) => {
+    const before = s.substring(Math.max(0, offset - 30), offset);
+    if (/https?:\/\//.test(before) || /doi\.org/.test(before) || /\/\S*$/.test(before)) return m;
+    return p + '. ' + d;
+  });
+  if (ppFixed !== s) {
+    issues.push('Page notation: added space after p./pp.');
+    s = ppFixed;
+  }
+
+  // --- Rule 10: Spaces around & ---
+  const ampFixed = s.replace(/\s*&\s*/g, ' & ');
+  if (ampFixed !== s) {
+    issues.push('Spacing: normalized spaces around &');
+    s = ampFixed;
+  }
+
+  // --- Rule 11: Multiple spaces ---
+  const spFixed = s.replace(/  +/g, ' ');
+  if (spFixed !== s) {
+    issues.push('Spacing: removed extra spaces');
+    s = spFixed;
+  }
+
+  // --- Rule 12: "et al." in reference list (should list all authors) ---
+  if (/et\s+al\./i.test(s)) {
+    const etAlIdx = s.search(/et\s+al\./i);
+    // Only flag if et al. appears in author section (before year)
+    if (yearIdx > 0 && etAlIdx < yearIdx) {
+      issues.push('\u26A0 "et al." found in reference list \u2014 all authors should be listed (APA style)');
+    }
+  }
+
+  // --- Rule 13: Check for non-Latin characters (Cyrillic, Greek, etc.) ---
+  // Flag but don't auto-fix — needs human transliteration
+  const nonLatin = s.match(/[\u0400-\u04FF\u0370-\u03FF\u0600-\u06FF\u4E00-\u9FFF\u3040-\u30FF]/g);
+  if (nonLatin) {
+    issues.push('\u26A0 Non-Latin characters detected \u2014 transliterate to Latin alphabet');
+  }
+
+  // --- Rule 14: Check for missing English translation of non-English title ---
+  // Heuristic: if title contains many non-English looking words but no [brackets], flag it
+  // Look for accented/special chars typical of non-English AND absence of [translation]
+  const titleArea = yearIdx > 0 ? s.substring(yearIdx) : s;
+  const titleAccents = (titleArea.match(/[\u00C0-\u024F]/g) || []).length;
+  if (titleAccents >= 1 && !/\[.{5,}\]/.test(titleArea)) {
+    // More specific: check if there are words that look distinctly non-English
+    // Use space/punctuation boundaries instead of \b — JS \b is ASCII-only
+    // German, French, Italian, Hungarian, Scandinavian, Spanish, Portuguese, Polish, Czech, Turkish
+    const nonEngPatterns = /(?:^|[\s(,;:.])(und|oder|eine[mrsn]?|der|die|das|des|dem|den|zur|zum|zwischen|les|une?|dans|avec|pour|sur|della|degli|delle|nella|degli|egy|az|vagy|nem|volt|mint|og|med|til|fra|som|eller|det|denne|disse|mens|efter|och|ett|som|ved|para|como|sobre|entre|pelo|pela|uma|nas|nos|ani|jest|jako|czy|jsou|nebo|podle|olan|olan|bir|ile|gibi|ise)(?=[\s),.;:!?]|$)/i;
+    // Also check for high density of extended-Latin characters (accented) — strong signal
+    const accentCount = (titleArea.match(/[\u00C0-\u024F]/g) || []).length;
+    const wordCount = (titleArea.match(/\S+/g) || []).length;
+    const accentDensity = wordCount > 0 ? accentCount / wordCount : 0;
+    if (nonEngPatterns.test(titleArea) || accentDensity > 0.5) {
+      issues.push('\u26A0 Non-English title detected \u2014 add English translation in [brackets]');
+    }
+  }
+
+  // --- Rule 15: Comma before & in author lists with 3+ authors ---
+  // APA requires: "Author, A., Author, B., & Author, C."
+  // Check: if there are 2+ commas before & in author part, ensure comma before &
+  if (yearIdx > 0) {
+    const authPart = s.substring(0, yearIdx);
+    // Count author separating commas (rough: comma followed by space and capital)
+    const authCommas = (authPart.match(/,\s+[A-Z]/g) || []).length;
+    if (authCommas >= 3) {
+      // 3+ authors: should have ", &" not " &"
+      const oxFixed = authPart.replace(/([A-Z\u00C0-\u024F]\.)\s+&\s+/g, '$1, & ');
+      if (oxFixed !== authPart) {
+        s = oxFixed + s.substring(yearIdx);
+        issues.push('Authors: added Oxford comma before & (required for 3+ authors in APA)');
+      }
+    }
+  }
+
+  return { original: orig, corrected: s.trim(), issues };
+}
+
 </script>
 </body>
 </html>
