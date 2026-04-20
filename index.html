@@ -1814,6 +1814,25 @@ function titleSimilarity(a, b) {
   return best;
 }
 
+// Push a title-match annotation. If the titles differ, also flag the discrepancy.
+function pushTitleCheck(checks, result, tSim, refTitle, foundTitle) {
+  const nr = normalize(refTitle || '');
+  const nf = normalize(foundTitle || '');
+  if (tSim >= 0.95 && nr === nf) {
+    checks.push('title match');
+  } else if (tSim >= 0.7) {
+    checks.push('title match (' + Math.round(tSim * 100) + '%)');
+    if (nr !== nf && foundTitle) {
+      result.notes.push('\u26A0 Title in reference may be incomplete or differ from source \u2014 source title: \u201C' + foundTitle + '\u201D');
+    }
+  } else {
+    checks.push('title: partial match (' + Math.round(tSim * 100) + '%)');
+    if (nr !== nf && foundTitle) {
+      result.notes.push('\u26A0 Title differs significantly from source \u2014 source title: \u201C' + foundTitle + '\u201D');
+    }
+  }
+}
+
 // Format CrossRef author list ("Family, Given; Family, Given; ...") as an
 // APA-style citation fragment ("Family, G., Family, G., & Family, G.").
 // Used to surface the journal/CrossRef-indexed citation form as a warning
@@ -2314,8 +2333,7 @@ async function verifyRef(parsed) {
         result.status = 'ok';
         result.notes.push('DOI verified in CrossRef');
         const checks = [];
-        if (tSim >= 0.7) checks.push('title match');
-        else checks.push('title: partial match');
+        pushTitleCheck(checks, result, tSim, parsed.title, doiRes.title);
         if (am === true) checks.push('first author match');
         if (yearExact) checks.push('year match');
         else checks.push('year: ' + parsed.year + ' in ref / ' + doiRes.year + ' in CrossRef (online-first vs. print)');
@@ -2377,7 +2395,7 @@ async function verifyRef(parsed) {
         result.status = 'ok';
         result.notes.push('DOI verified in CrossRef');
         const checks = [];
-        checks.push('title match');
+        pushTitleCheck(checks, result, tSim, parsed.title, doiRes.title);
         if (am === true) checks.push('first author match');
         checks.push('year: ' + parsed.year + ' in ref / ' + doiRes.year + ' in CrossRef (print vs. eBook date)');
         result.notes.push(checks.join(' / '));
@@ -2442,7 +2460,7 @@ async function verifyRef(parsed) {
               result.found = { title: s2Title, authors: s2Authors, year: s2Year, journal: s2Journal, doi: parsed.doi, source: 'semantic-scholar' };
               result.notes.push('DOI verified in Semantic Scholar');
               const checks = [];
-              if (tSim >= 0.7) checks.push('title match');
+              pushTitleCheck(checks, result, tSim, parsed.title, s2Title);
               if (am === true) checks.push('first author match');
               if (parsed.year && s2Year && parsed.year === String(s2Year)) checks.push('year match');
               if (s2Journal) checks.push('journal: ' + s2Journal);
@@ -2481,7 +2499,7 @@ async function verifyRef(parsed) {
                 result.found = { title: cnTitle, authors: cnAuthors, year: String(cnYear), journal: cnJournal, doi: parsed.doi, source: 'doi.org' };
                 result.notes = ['DOI verified via doi.org (not indexed in CrossRef)'];
                 const checks = [];
-                checks.push('title match (' + Math.round(tSim * 100) + '%)');
+                pushTitleCheck(checks, result, tSim, parsed.title, cnTitle);
                 if (am === true) checks.push('first author match');
                 if (parsed.year && cnYear && parsed.year === String(cnYear)) checks.push('year match');
                 if (cnJournal) checks.push('journal: ' + cnJournal);
@@ -2519,8 +2537,7 @@ async function verifyRef(parsed) {
         result.found = ax;
         result.notes.push('arXiv ID ' + parsed.arxivId + ' verified via arXiv');
         const checks = [];
-        if (tSim >= 0.7) checks.push('title match');
-        else checks.push('title: partial match (' + Math.round(tSim * 100) + '%)');
+        pushTitleCheck(checks, result, tSim, parsed.title, ax.title);
         if (am === true) checks.push('first author match');
         if (parsed.year && ax.year && parsed.year === String(ax.year)) checks.push('year match');
         checks.push('arXiv:' + parsed.arxivId);
@@ -2738,7 +2755,7 @@ async function verifyRef(parsed) {
           }
         }
         const checks = [];
-        checks.push('title match (' + Math.round(tSim * 100) + '%)');
+        pushTitleCheck(checks, result, tSim, parsed.title, best.title);
         if (am === true) checks.push('first author match');
         if (best.journal) { const cl = containerLabel(parsed, best); checks.push(cl + ': ' + best.journal); }
         result.notes.push(checks.join(' / '));
@@ -2746,7 +2763,7 @@ async function verifyRef(parsed) {
         result.status = 'ok';
         result.notes.push('Found matching record via ' + sourceLabel(best.source));
         const checks = [];
-        checks.push('title match (' + Math.round(tSim * 100) + '%)');
+        pushTitleCheck(checks, result, tSim, parsed.title, best.title);
         if (am === true) checks.push('first author match');
         if (yearExact && parsed.year) checks.push('year match');
         else if (!yearExact && parsed.year && yearClose) checks.push('year: ' + parsed.year + ' in ref / ' + best.year + ' in database (online-first vs. print)');
