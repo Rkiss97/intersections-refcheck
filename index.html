@@ -3852,6 +3852,42 @@ function findItalicSpans(ref) {
 // - Words after colon/em-dash
 // - Acronyms (all-caps words like "EU", "NATO", "OECD")
 // - Likely proper nouns (kept as-is if they look like names/places)
+// Proper nouns that must stay capitalized in sentence case
+const PROPER_NOUNS = new Set([
+  // Continents & regions
+  'Africa','African','America','American','Americas','Antarctica','Arctic','Asia','Asian',
+  'Australasia','Australia','Australian','Balkans','Baltic','Caribbean','Carpathian',
+  'Caucasus','Central','East','Eastern','Europe','European','Eurasia','Eurasian',
+  'Latin','Mediterranean','Middle','Near','North','Northern','Oceania',
+  'Scandinavia','Scandinavian','South','Southeast','Southern','Sub-Saharan','West','Western',
+  // Countries & demonyms (common in social science)
+  'Albania','Albanian','Austria','Austrian','Belgium','Belgian','Bosnia','Bosnian',
+  'Britain','British','Bulgaria','Bulgarian','Canada','Canadian','China','Chinese',
+  'Croatia','Croatian','Czech','Czechia','Denmark','Danish','Egypt','Egyptian',
+  'England','English','Estonia','Estonian','Finland','Finnish','France','French',
+  'Georgia','Georgian','Germany','German','Greece','Greek','Holland','Dutch',
+  'Hungary','Hungarian','Iceland','Icelandic','India','Indian','Iran','Iranian',
+  'Iraq','Iraqi','Ireland','Irish','Israel','Israeli','Italy','Italian',
+  'Japan','Japanese','Kosovo','Kosovar','Latvia','Latvian','Lithuania','Lithuanian',
+  'Macedonia','Macedonian','Moldova','Moldovan','Montenegro','Montenegrin',
+  'Morocco','Moroccan','Netherlands','Nigeria','Nigerian','Norway','Norwegian',
+  'Ottoman','Pakistan','Pakistani','Palestine','Palestinian','Poland','Polish',
+  'Portugal','Portuguese','Romania','Romanian','Russia','Russian','Scotland','Scottish',
+  'Serbia','Serbian','Slovakia','Slovak','Slovenia','Slovenian','Soviet','Spain','Spanish',
+  'Sweden','Swedish','Switzerland','Swiss','Syria','Syrian','Turkey','Turkish',
+  'Ukraine','Ukrainian','Vietnam','Vietnamese','Wales','Welsh','Yugoslavia','Yugoslav',
+  // Cities & places common in research
+  'Berlin','Brussels','Budapest','London','Moscow','Paris','Prague','Vienna','Warsaw',
+  'Crimea','Donbas','Kosovo','Kurdistan','Transylvania','Vojvodina',
+  // Political/institutional
+  'Brexit','Christian','Catholic','Protestant','Muslim','Islamic','Islam','Jewish','Jewish',
+  'Roma','Romani','Sinti','Communist','Communism','Marxist','Marxism','Nazi','Nazism',
+  'Fascist','Fascism','Holocaust','Soviet','Bolshevik',
+  // Common proper adjectives in titles
+  'Keynesian','Weberian','Durkheimian','Marxian','Freudian','Kantian','Hegelian',
+  'Foucauldian','Bourdieusian','Gramscian',
+]);
+
 function toSentenceCase(title) {
   // Split but preserve brackets [translation] as-is
   const parts = title.split(/(\[.*?\])/);
@@ -3875,6 +3911,10 @@ function toSentenceCase(title) {
       if (/[a-z][A-Z]/.test(w)) return w;
       // Hyphenated proper-looking words: keep as-is
       if (/^[A-Z][a-z]+-[A-Z]/.test(w)) return w;
+      // Proper nouns: keep capitalized
+      // Strip trailing punctuation for lookup
+      const bare = w.replace(/[.,;:!?)]+$/, '');
+      if (PROPER_NOUNS.has(bare)) return w;
       // Short words that are always lowercase in titles
       if (/^(the|a|an|and|but|or|nor|for|yet|so|in|on|at|to|by|of|as|if|is|it|up|vs|via)$/i.test(w)) {
         return w.toLowerCase();
