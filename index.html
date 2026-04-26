@@ -2,9 +2,6 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reference Checker / Intersections</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
@@ -337,6 +334,7 @@ textarea.ri::placeholder{color:var(--brown-light);font-family:'Inter',sans-serif
 .sc-ref.sc-ok .sc-issues li::before{content:'✓ ';color:var(--ok);}
 .sc-diff-add{background:#d4edda;padding:1px 2px;border-radius:2px;}
 .sc-diff-del{background:#f8d7da;padding:1px 2px;border-radius:2px;text-decoration:line-through;}
+.sc-italic{font-style:italic;}
 .sc-summary{
   display:flex;gap:12px;padding:16px 24px;border-bottom:1px solid var(--wine-border);flex-wrap:wrap;
 }
@@ -3350,8 +3348,82 @@ function scFilt(type, btn) {
 
 function scCopyAll() {
   if (!scResults.length) return;
-  const text = scResults.map(r => r.corrected).join('\n');
-  navigator.clipboard.writeText(text).then(() => showToast('Corrected list copied to clipboard'));
+  const plain = scResults.map(r => r.corrected).join('\n');
+  // Build rich-text HTML with italics for journal/book names
+  const htmlLines = scResults.map(r => {
+    let line = esc(r.corrected);
+    if (r.italicSpans && r.italicSpans.length > 0) {
+      line = applyItalicSpansToPlain(r.corrected, r.italicSpans);
+    }
+    return line;
+  });
+  const htmlStr = htmlLines.join('<br>\n');
+  // Try rich-text copy first (preserves italics in Word/Docs)
+  try {
+    const blob = new Blob([htmlStr], { type: 'text/html' });
+    const plainBlob = new Blob([plain], { type: 'text/plain' });
+    navigator.clipboard.write([
+      new ClipboardItem({ 'text/html': blob, 'text/plain': plainBlob })
+    ]).then(() => showToast('Copied with formatting (italics preserved)'));
+  } catch (e) {
+    // Fallback to plain text
+    navigator.clipboard.writeText(plain).then(() => showToast('Copied to clipboard (plain text)'));
+  }
+}
+
+// Apply italic <em> tags to escaped HTML based on character positions in the original text.
+// Works with both esc()-only and diff-highlighted HTML.
+function applyItalicSpans(html, plainText, spans) {
+  if (!spans || spans.length === 0) return html;
+  // For diff-highlighted HTML, we can't easily map char positions through tags.
+  // Instead, find the italic text in the HTML and wrap it.
+  for (const span of spans) {
+    const italicText = plainText.substring(span.start, span.end);
+    if (!italicText) continue;
+    const escapedItalic = esc(italicText);
+    // The escaped text might be split across diff spans — wrap the whole match
+    // Use a regex that allows HTML tags between characters
+    const escapedForRegex = escapedItalic.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Allow optional HTML tags between each character group (for diff spans)
+    const flexiblePattern = escapedForRegex.replace(/(\S+)/g, (word) => {
+      return word.split('').map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(?:<[^>]*>)*');
+    });
+    // Simpler approach: find the italic text (possibly with tags interspersed) and wrap
+    // First try exact match (for non-diff case)
+    if (html.includes(escapedItalic)) {
+      html = html.replace(escapedItalic, '<em class="sc-italic">' + escapedItalic + '</em>');
+    } else {
+      // For diff-highlighted case, find text allowing tags between chars
+      // Build pattern: each char optionally followed by </span> or <span...>
+      let pattern = '';
+      for (let i = 0; i < escapedItalic.length; i++) {
+        const c = escapedItalic[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        pattern += c;
+        if (i < escapedItalic.length - 1) {
+          pattern += '(?:<\\/span>|<span[^>]*>)*';
+        }
+      }
+      try {
+        const re = new RegExp(pattern);
+        html = html.replace(re, (m) => '<em class="sc-italic">' + m + '</em>');
+      } catch(e) { /* skip if regex fails */ }
+    }
+  }
+  return html;
+}
+
+// Apply italic <em> tags to plain text for clipboard HTML
+function applyItalicSpansToPlain(text, spans) {
+  if (!spans || spans.length === 0) return esc(text);
+  // Sort spans by start position descending so we can insert tags without shifting indices
+  const sorted = [...spans].sort((a, b) => b.start - a.start);
+  let result = text;
+  for (const span of sorted) {
+    result = result.substring(0, span.start) + '<i>' + result.substring(span.start, span.end) + '</i>' + result.substring(span.end);
+  }
+  // Escape everything except our <i> tags
+  return result.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/&lt;i&gt;/g, '<i>').replace(/&lt;\/i&gt;/g, '</i>');
 }
 
 function scGo() {
@@ -3381,12 +3453,12 @@ function scGo() {
     let html = '';
     if (r.issues.length > 0) {
       html += `<div class="sc-original">${esc(r.original)}</div>`;
-      html += `<div class="sc-corrected">${highlightDiff(r.original, r.corrected)}</div>`;
+      html += `<div class="sc-corrected">${applyItalicSpans(highlightDiff(r.original, r.corrected), r.corrected, r.italicSpans)}</div>`;
       html += `<ul class="sc-issues">`;
       r.issues.forEach(iss => { html += `<li>${esc(iss)}</li>`; });
       html += `</ul>`;
     } else {
-      html += `<div class="sc-corrected">${esc(r.corrected)}</div>`;
+      html += `<div class="sc-corrected">${applyItalicSpans(esc(r.corrected), r.corrected, r.italicSpans)}</div>`;
       html += `<ul class="sc-issues"><li>Formatting OK</li></ul>`;
     }
     div.innerHTML = html;
@@ -3639,7 +3711,181 @@ function checkStyle(ref) {
     }
   }
 
-  return { original: orig, corrected: s.trim(), issues };
+  // --- Rule 16: Title case → Sentence case ---
+  // APA requires article and book titles in sentence case (only first word, proper nouns,
+  // and first word after colon/em-dash capitalized). Journal names stay title case.
+  // Detect title: text between "(Year). " and the next period followed by journal/publisher.
+  const yrEndMatch = s.match(/\(\d{4}[a-z]?\)\.\s+/);
+  if (yrEndMatch) {
+    const titleStart = yrEndMatch.index + yrEndMatch[0].length;
+    // Find where the title ends: the period before a journal name, "In " editor, publisher, or URL
+    // Look for: ". Journal Name," or ". Publisher." or ". In " or ". http"
+    const afterYear = s.substring(titleStart);
+    // Title ends at first ". " followed by: capital word that looks like journal/publisher/In/http
+    // But NOT inside brackets [translation]
+    let titleEnd = -1;
+    const periodRe = /\.\s+/g;
+    let pm;
+    while ((pm = periodRe.exec(afterYear)) !== null) {
+      const afterPeriod = afterYear.substring(pm.index + pm[0].length);
+      // Skip if we're inside brackets
+      const beforePeriod = afterYear.substring(0, pm.index);
+      const openBrackets = (beforePeriod.match(/\[/g) || []).length;
+      const closeBrackets = (beforePeriod.match(/\]/g) || []).length;
+      if (openBrackets > closeBrackets) continue;
+      // Title ends here if followed by: In (editor), http, a capitalized journal-like name,
+      // or a publisher name
+      if (/^(?:In\s+[A-Z]|https?:\/\/|[A-Z][a-z]+\s+(?:and|&)\s|Accessed)/.test(afterPeriod)) {
+        titleEnd = pm.index;
+        break;
+      }
+      // Journal pattern: "Capitalized Words, Volume(Issue)" or "Capitalized Words, digit"
+      // Allow colons in journal names (e.g. "Intersections: East European Journal...")
+      if (/^[A-Z][A-Za-z\u00C0-\u024F:&\s]+,\s*\d/.test(afterPeriod) && !/^In\s+[A-Z]/.test(afterPeriod)) {
+        titleEnd = pm.index;
+        break;
+      }
+      // Publisher pattern: ends with known publishers or just capitalized words at end
+      if (/^(?:Oxford|Cambridge|Routledge|Springer|Sage|Palgrave|Wiley|Elsevier|Berghahn|Praeger|Princeton|Bloomsbury|Pearson)\b/.test(afterPeriod)) {
+        titleEnd = pm.index;
+        break;
+      }
+    }
+    if (titleEnd === -1) titleEnd = afterYear.length;
+    const title = afterYear.substring(0, titleEnd);
+    // Check if title is in title case: 3+ words starting with uppercase (excluding short words)
+    const titleWords = title.replace(/\[.*?\]/g, '').split(/\s+/).filter(w => w.length >= 4);
+    const capsWords = titleWords.filter(w => /^[A-Z\u00C0-\u024F]/.test(w) && !/^[A-Z\u00C0-\u024F]+$/.test(w));
+    const isTitleCase = titleWords.length >= 3 && capsWords.length / titleWords.length > 0.6;
+    if (isTitleCase) {
+      const converted = toSentenceCase(title);
+      if (converted !== title) {
+        s = s.substring(0, titleStart) + converted + s.substring(titleStart + titleEnd);
+        issues.push('Title: converted to sentence case (APA style \u2014 only first word and proper nouns capitalized)');
+      }
+    }
+  }
+
+  // Detect italic spans (journal names, book titles)
+  const italicSpans = findItalicSpans(s.trim());
+  return { original: orig, corrected: s.trim(), issues, italicSpans };
+}
+
+// Detect spans that should be italicized in APA:
+// - Journal names (after article title, before volume/issue)
+// - Book titles (standalone books or in "In Editor (Ed.), Book Title" patterns)
+function findItalicSpans(ref) {
+  const spans = [];
+  const yrMatch = ref.match(/\(\d{4}[a-z]?\)\.\s+/);
+  if (!yrMatch) return spans;
+
+  const afterYrIdx = yrMatch.index + yrMatch[0].length;
+  const afterYear = ref.substring(afterYrIdx);
+
+  // Walk through period-space boundaries to find where the article/chapter title ends
+  const periodRe = /\.\s+/g;
+  let pm;
+  while ((pm = periodRe.exec(afterYear)) !== null) {
+    const afterPeriod = afterYear.substring(pm.index + pm[0].length);
+    const beforePeriod = afterYear.substring(0, pm.index);
+    // Skip if inside brackets
+    const openB = (beforePeriod.match(/\[/g) || []).length;
+    const closeB = (beforePeriod.match(/\]/g) || []).length;
+    if (openB > closeB) continue;
+
+    // --- Journal article pattern: "Title. Journal Name, Volume(Issue), pages" ---
+    // Allow colons in journal names (e.g. "Intersections: East European Journal...")
+    if (/^[A-Z][A-Za-z\u00C0-\u024F:&\s]+,\s*\d/.test(afterPeriod) && !/^In\s+[A-Z]/.test(afterPeriod)) {
+      const journalStart = afterYrIdx + pm.index + pm[0].length;
+      const journalPart = ref.substring(journalStart);
+      // Journal name ends at comma before volume number
+      const commaMatch = journalPart.match(/,\s*\d/);
+      if (commaMatch) {
+        spans.push({ start: journalStart, end: journalStart + commaMatch.index });
+      }
+      break;
+    }
+
+    // --- Book chapter pattern: "Title. In Editor (Ed.), Book Title (pp. x-y). Publisher." ---
+    if (/^In\s+[A-Z]/.test(afterPeriod)) {
+      // Find book title after (Ed.)/(Eds.) marker
+      const edMatch = afterPeriod.match(/\(Eds?\.\)[,.]?\s+/);
+      if (edMatch) {
+        const bookTitleStart = afterYrIdx + pm.index + pm[0].length + edMatch.index + edMatch[0].length;
+        const bookPart = ref.substring(bookTitleStart);
+        // Book title ends at "(pp." or next period
+        const ppMatch = bookPart.match(/\s+\(pp?\./);
+        const dotMatch = bookPart.match(/\.\s+/);
+        if (ppMatch) {
+          spans.push({ start: bookTitleStart, end: bookTitleStart + ppMatch.index });
+        } else if (dotMatch) {
+          spans.push({ start: bookTitleStart, end: bookTitleStart + dotMatch.index });
+        }
+      }
+      break;
+    }
+
+    // --- Standalone book pattern: "Title. Publisher." ---
+    if (/^(?:Oxford|Cambridge|Routledge|Springer|Sage|Palgrave|Wiley|Elsevier|Berghahn|Praeger|Princeton|Bloomsbury|Pearson|MIT|University|Academic|Verso|Polity|Brill)\b/.test(afterPeriod)) {
+      // The title (from year to here) is a book title — italicize it
+      spans.push({ start: afterYrIdx, end: afterYrIdx + pm.index });
+      break;
+    }
+
+    // --- URL/DOI at end without publisher name — could be book or article ---
+    if (/^https?:\/\//.test(afterPeriod)) {
+      // If no journal-like comma+digit pattern found before, it's likely a book
+      // But only italicize if the preceding text doesn't end with page ranges
+      const preText = afterYear.substring(0, pm.index);
+      if (!/\d+\u2013\d+/.test(preText) && !/pp?\.\s*\d/.test(preText)) {
+        spans.push({ start: afterYrIdx, end: afterYrIdx + pm.index });
+      }
+      break;
+    }
+  }
+
+  return spans;
+}
+
+// Convert a title to sentence case, preserving:
+// - First word capitalization
+// - Words after colon/em-dash
+// - Acronyms (all-caps words like "EU", "NATO", "OECD")
+// - Likely proper nouns (kept as-is if they look like names/places)
+function toSentenceCase(title) {
+  // Split but preserve brackets [translation] as-is
+  const parts = title.split(/(\[.*?\])/);
+  return parts.map((part, pi) => {
+    if (part.startsWith('[')) return part; // Keep bracketed translations as-is
+    const words = part.split(/(\s+)/);
+    let afterColon = false;
+    return words.map((w, i) => {
+      if (/^\s+$/.test(w)) return w; // whitespace
+      // First word of title: keep capitalized
+      if (i === 0 && pi === 0) { afterColon = false; return w; }
+      // After colon or em-dash: capitalize first letter
+      if (afterColon) { afterColon = false; return w; }
+      // Check if next word should be after-colon
+      if (/[:]\s*$/.test(words[i - 1] || '') || /[\u2013\u2014]\s*$/.test(words[i - 1] || '')) {
+        afterColon = false; return w; // keep as-is (already capitalized or not)
+      }
+      // Acronyms (all caps, 2+ chars): keep as-is
+      if (/^[A-Z\u00C0-\u024F]{2,}$/.test(w) || /^[A-Z]{2,}s?$/.test(w)) return w;
+      // Words with internal caps (McDonald, iPhone): keep as-is
+      if (/[a-z][A-Z]/.test(w)) return w;
+      // Hyphenated proper-looking words: keep as-is
+      if (/^[A-Z][a-z]+-[A-Z]/.test(w)) return w;
+      // Short words that are always lowercase in titles
+      if (/^(the|a|an|and|but|or|nor|for|yet|so|in|on|at|to|by|of|as|if|is|it|up|vs|via)$/i.test(w)) {
+        return w.toLowerCase();
+      }
+      // Lowercase the first letter, keep rest
+      if (/^[A-Z\u00C0-\u024F]/.test(w) && w.length >= 2) {
+        return w.charAt(0).toLowerCase() + w.substring(1);
+      }
+      return w;
+    }).join('');
+  }).join('');
 }
 
 </script>
