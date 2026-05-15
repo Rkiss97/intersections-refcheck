@@ -655,7 +655,10 @@ function splitRefs(txt) {
   // The number must be at the start of a line, after a tab, or at text start
   // NOTE: use \s* (not \s+) because PDF/Word extraction often loses the space between
   // a double-digit number and the following surname (e.g. "10.Lozo O." instead of "10. Lozo O.")
-  const numberedRe = /(?:^|\n)\s*(\d{1,3})\.\s*[A-Z\u00C0-\u024F][a-zA-Z\u00C0-\u024F]/g;
+  // Phase 1: Detect numbered entries. Accept ANY content after "N." + whitespace,
+  // not just uppercase letters \u2014 entries like "15th ratification..." or "87th session..."
+  // start with digits. Also support no-space PDF variants like "10.Lozo" (letter right after period)
+  const numberedRe = /(?:^|\n)\s*(\d{1,3})\.(?:[\t ]+\S|[A-Za-z\u00C0-\u024F])/g;
   const numberedMatches = [...txt.matchAll(numberedRe)];
   if (numberedMatches.length >= 2) {
     const nums = numberedMatches.map(m => parseInt(m[1]));
@@ -663,10 +666,17 @@ function splitRefs(txt) {
     const startsLow = nums[0] <= 1;
     const isSequential = nums.every((n, i) => i === 0 || (n >= nums[i-1] && n <= nums[i-1] + 2));
     if (startsLow && isSequential && nums.length >= 3) {
-      // Once confirmed as numbered list, split on "N. Letter" (upper or lowercase, but NOT digits like "10.15507" DOIs)
-      // Require the next char after \s* to be a LETTER (not digit) to avoid matching DOI prefixes
-      const parts = txt.split(/(?=(?:^|\n)\s*\d{1,3}\.\s*[A-Za-z\u00C0-\u024F][a-zA-Z\u00C0-\u024F])/);
-      const numbered = parts.map(p => p.trim().replace(/^\d{1,3}\.\s*/, '')).filter(r => r.length > 15);
+      // Phase 2: Position-based split using detected match positions
+      // This avoids regex-based split that might miss digit-starting entries
+      const numbered = [];
+      for (let i = 0; i < numberedMatches.length; i++) {
+        const startPos = numberedMatches[i].index;
+        const endPos = i + 1 < numberedMatches.length ? numberedMatches[i + 1].index : txt.length;
+        const chunk = txt.substring(startPos, endPos).trim()
+          .replace(/^\d{1,3}\.\s*/, '')        // strip leading number
+          .replace(/\s*\n\s*/g, ' ').trim();   // join multi-line into single line
+        if (chunk.length > 15) numbered.push(chunk);
+      }
       if (numbered.length >= 2) return numbered; // Numbered refs are already well-split — skip postSplitMerged
     }
   }
