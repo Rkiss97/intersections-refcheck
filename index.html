@@ -2955,6 +2955,43 @@ async function verifyRef(parsed) {
     result.notes.push('No matching record found in any database (CrossRef, OpenAlex, Semantic Scholar, Open Library, Google Books, arXiv)');
     result.notes.push('This appears to be a report, website, or other non-indexed source \u2014 manual verification recommended');
   }
+
+  // --- URL liveness check for unverified refs ---
+  // For warn/suspicious refs that have a URL (not DOI), check if the URL is reachable
+  if (result.status === 'warn' || result.status === 'suspicious') {
+    const urlMatch = parsed.raw.match(/https?:\/\/[^\s,;)\]]+/);
+    if (urlMatch) {
+      const url = urlMatch[0].replace(/[.)]+$/, ''); // strip trailing punctuation
+      try {
+        const resp = await fetch(url, {
+          method: 'HEAD',
+          mode: 'cors',
+          signal: AbortSignal.timeout(6000)
+        });
+        if (resp.ok) {
+          result.notes.push('\u2713 URL is live (' + resp.status + ')');
+        } else if (resp.status === 404 || resp.status === 410) {
+          result.notes.push('\u26a0 URL returns ' + resp.status + ' \u2014 page not found');
+        } else if (resp.status >= 400) {
+          result.notes.push('\u26a0 URL returns HTTP ' + resp.status);
+        }
+      } catch(e) {
+        // CORS block or network error \u2014 try no-cors as fallback (can only detect if server responds)
+        try {
+          const resp2 = await fetch(url, {
+            method: 'HEAD',
+            mode: 'no-cors',
+            signal: AbortSignal.timeout(6000)
+          });
+          // Opaque response means server responded (but we can't read status)
+          result.notes.push('URL reachable (server responded, but details blocked by CORS)');
+        } catch(e2) {
+          result.notes.push('\u26a0 URL could not be reached \u2014 may be broken or offline');
+        }
+      }
+    }
+  }
+
   return result;
 }
 
