@@ -237,6 +237,7 @@ textarea.ri::placeholder{color:var(--brown-light);font-family:'Inter',sans-serif
 .pill.p-ok{background:var(--ok-bg);color:var(--ok);}
 .pill.p-warn{background:var(--warn-bg);color:var(--warn);}
 .pill.p-err{background:var(--err-bg);color:var(--err);}
+.pill.p-sus{background:#fde8e0;color:#b84000;}
 
 .rbody{padding:24px;}
 
@@ -251,6 +252,7 @@ textarea.ri::placeholder{color:var(--brown-light);font-family:'Inter',sans-serif
 .entry.e-ok{background:var(--ok-bg);border-color:var(--ok);}
 .entry.e-warn{background:var(--warn-bg);border-color:var(--warn);}
 .entry.e-err{background:var(--err-bg);border-color:var(--err);}
+.entry.e-sus{background:#fde8e0;border-color:#b84000;}
 
 .entry .ref{
   font-family:'SF Mono','JetBrains Mono','Consolas',monospace;
@@ -430,6 +432,7 @@ textarea.ri::placeholder{color:var(--brown-light);font-family:'Inter',sans-serif
           <button class="fp on" onclick="filt('all',this)">All</button>
           <button class="fp" onclick="filt('ok',this)">Verified</button>
           <button class="fp" onclick="filt('warn',this)">Uncertain</button>
+          <button class="fp" onclick="filt('sus',this)">Suspicious</button>
           <button class="fp" onclick="filt('error',this)">Errors</button>
         </div>
         <button class="btn" id="rawBtn" onclick="toggleRaw()">Raw</button>
@@ -2266,6 +2269,27 @@ function containerLabel(parsed, record) {
   return 'journal';
 }
 
+// Determine if a reference looks like a scholarly publication (journal article, book, book chapter)
+// vs a web-only source (report, website, news article, government doc, etc.)
+// Used to flag "suspicious" uncertain refs that claim to be scholarly but aren't found anywhere
+function looksLikeScholarlyRef(raw) {
+  // Journal article signals: volume(issue), pages, journal-like comma+digit pattern
+  if (/\d+\s*\(\d+\)\s*[,:]\s*\d/.test(raw)) return true;        // 12(3), 45
+  if (/,\s*\d+\s*\(\d+\)/.test(raw)) return true;                // , 14(2)
+  if (/\bpp?\.\s*\d+/.test(raw)) return true;                     // p. 55 or pp. 100-120
+  if (/\d+\s*[–—-]\s*\d+\s*\.?\s*(?:https?:\/\/|$)/m.test(raw)) return true; // 45-67. https://
+  // Book signals: publisher names
+  if (/\b(Oxford|Cambridge|Routledge|Springer|Sage|Palgrave|Wiley|Elsevier|Berghahn|Praeger|Princeton|Bloomsbury|Pearson|University Press|MIT Press|Academic Press|Verso|Polity|Brill)\b/i.test(raw)) return true;
+  // "(Ed.)" or "(Eds.)" — book chapter
+  if (/\(Eds?\.\)/.test(raw)) return true;
+  // "In " + editor pattern (book chapter)
+  if (/\.\s+In\s+[A-Z]/.test(raw)) return true;
+  // Journal name pattern: ". Capitalized Words, digit" after a title-ending period
+  // Must have at least 2 capitalized words before the comma
+  if (/\.\s+[A-Z][a-zA-ZÀ-ɏ]+(?:\s+[A-Za-zÀ-ɏ&:]+){1,8},\s*\d/.test(raw)) return true;
+  return false;
+}
+
 async function verifyRef(parsed) {
   const result = { status: 'warn', ref: parsed.raw, parsed, notes: [], found: null };
   let doiFailed = false; // Track if a DOI was present but didn't resolve
@@ -2921,10 +2945,15 @@ async function verifyRef(parsed) {
     result.status = 'warn';
     result.notes.push('DOI not found in CrossRef and book not matched in Open Library or Google Books');
     result.notes.push('The book may exist but is not well indexed \u2014 manual verification recommended');
+  } else if (looksLikeScholarlyRef(parsed.raw)) {
+    // Looks like a journal article or book but not found anywhere \u2014 suspicious
+    result.status = 'suspicious';
+    result.notes.push('No matching record found in any database (CrossRef, OpenAlex, Semantic Scholar, Open Library, Google Books, arXiv)');
+    result.notes.push('\u26a0 Reference appears to be a journal article or book but could not be verified \u2014 may be fabricated or contain significant errors');
   } else {
     result.status = 'warn';
     result.notes.push('No matching record found in any database (CrossRef, OpenAlex, Semantic Scholar, Open Library, Google Books, arXiv)');
-    result.notes.push('This may be a book, report, newspaper/news article, or other non-indexed source \u2014 manual verification recommended');
+    result.notes.push('This appears to be a report, website, or other non-indexed source \u2014 manual verification recommended');
   }
   return result;
 }
@@ -3042,7 +3071,7 @@ async function go() {
     plive.appendChild(div);
   });
 
-  let done = 0, ok = 0, warn = 0, err = 0;
+  let done = 0, ok = 0, warn = 0, err = 0, sus = 0;
   _results = [];
 
   const tasks = parsed.map((p, i) => async () => {
@@ -3058,12 +3087,13 @@ async function go() {
     done++;
 
     if (result.status === 'ok') ok++;
+    else if (result.status === 'suspicious') sus++;
     else if (result.status === 'warn') warn++;
     else err++;
 
     // Update live item
     if (li) {
-      const icon = result.status === 'ok' ? '\u2705' : result.status === 'warn' ? '\u26A0\uFE0F' : '\u274C';
+      const icon = result.status === 'ok' ? '\u2705' : result.status === 'suspicious' ? '\uD83D\uDD34' : result.status === 'warn' ? '\u26A0\uFE0F' : '\u274C';
       li.className = 'plive-item';
       li.querySelector('.icon').textContent = icon;
       // Auto-scroll
@@ -3073,7 +3103,7 @@ async function go() {
     // Update progress
     const pct = Math.round((done / parsed.length) * 100);
     document.getElementById('pbar').style.width = pct + '%';
-    document.getElementById('ptxt').textContent = `${done}/${parsed.length} Checked \u2014 ${ok} Verified, ${warn} Uncertain, ${err} Errors`;
+    document.getElementById('ptxt').textContent = `${done}/${parsed.length} Checked \u2014 ${ok} Verified, ${warn} Uncertain, ${sus} Suspicious, ${err} Errors`;
   });
 
   await runConcurrent(tasks, MAX_CONCURRENT);
@@ -3099,12 +3129,14 @@ function showResults(results) {
 
   const ok = results.filter(r => r.status === 'ok').length;
   const warn = results.filter(r => r.status === 'warn').length;
+  const sus = results.filter(r => r.status === 'suspicious').length;
   const err = results.filter(r => r.status === 'error').length;
 
   document.getElementById('sumRow').innerHTML = `
     <div class="pill p-all"><span class="n">${results.length}</span> Checked</div>
     <div class="pill p-ok"><span class="n">${ok}</span> Verified</div>
     <div class="pill p-warn"><span class="n">${warn}</span> Uncertain</div>
+    <div class="pill p-sus"><span class="n">${sus}</span> Suspicious</div>
     <div class="pill p-err"><span class="n">${err}</span> Errors</div>`;
 
   renderEntries(results, 'all');
@@ -3123,6 +3155,7 @@ function renderEntries(results, filter) {
   const list = filter === 'all' ? results : results.filter(r =>
     filter === 'ok' ? r.status === 'ok' :
     filter === 'warn' ? r.status === 'warn' :
+    filter === 'sus' ? r.status === 'suspicious' :
     r.status === 'error'
   );
 
@@ -3133,10 +3166,10 @@ function renderEntries(results, filter) {
 
   list.forEach(r => {
     const div = document.createElement('div');
-    const cls = r.status === 'ok' ? 'e-ok' : r.status === 'warn' ? 'e-warn' : 'e-err';
+    const cls = r.status === 'ok' ? 'e-ok' : r.status === 'suspicious' ? 'e-sus' : r.status === 'warn' ? 'e-warn' : 'e-err';
     div.className = 'entry ' + cls;
 
-    const icon = r.status === 'ok' ? '\u2705' : r.status === 'warn' ? '\u26A0\uFE0F' : '\u274C';
+    const icon = r.status === 'ok' ? '\u2705' : r.status === 'suspicious' ? '\uD83D\uDD34' : r.status === 'warn' ? '\u26A0\uFE0F' : '\u274C';
 
     let notesHtml = '';
     if (r.notes.length) {
@@ -3243,10 +3276,12 @@ function updateRawText(filter) {
   let rawText;
   if (filter === 'all') {
     const errs = results.filter(r => r.status === 'error');
+    const susps = results.filter(r => r.status === 'suspicious');
     const warns = results.filter(r => r.status === 'warn');
     const oks = results.filter(r => r.status === 'ok');
     const sections = [];
     if (errs.length) sections.push('=== ERRORS (' + errs.length + ') ===\n\n' + buildBlock(errs));
+    if (susps.length) sections.push('=== SUSPICIOUS (' + susps.length + ') ===\n\n' + buildBlock(susps));
     if (warns.length) sections.push('=== UNCERTAIN (' + warns.length + ') ===\n\n' + buildBlock(warns));
     if (oks.length) sections.push('=== VERIFIED (' + oks.length + ') ===\n\n' + buildBlock(oks));
     rawText = sections.join('\n\n\n');
@@ -3254,6 +3289,7 @@ function updateRawText(filter) {
     const filtered = results.filter(r =>
       filter === 'ok' ? r.status === 'ok' :
       filter === 'warn' ? r.status === 'warn' :
+      filter === 'sus' ? r.status === 'suspicious' :
       r.status === 'error'
     );
     rawText = buildBlock(filtered);
