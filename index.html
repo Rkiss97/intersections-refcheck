@@ -2956,12 +2956,13 @@ async function verifyRef(parsed) {
     result.notes.push('This appears to be a report, website, or other non-indexed source \u2014 manual verification recommended');
   }
 
-  // --- URL liveness check for unverified refs ---
-  // For warn/suspicious refs that have a URL (not DOI), check if the URL is reachable
-  if (result.status === 'warn' || result.status === 'suspicious') {
-    const urlMatch = parsed.raw.match(/https?:\/\/[^\s,;)\]]+/);
-    if (urlMatch) {
-      const url = urlMatch[0].replace(/[.)]+$/, ''); // strip trailing punctuation
+  // --- URL liveness check ---
+  // Check if the URL in the reference is reachable (for all statuses)
+  const urlMatch = parsed.raw.match(/https?:\/\/[^\s,;)\]]+/);
+  if (urlMatch) {
+    const url = urlMatch[0].replace(/[.)]+$/, ''); // strip trailing punctuation
+    // Skip DOI URLs \u2014 already verified above
+    if (!/doi\.org\//.test(url)) {
       try {
         const resp = await fetch(url, {
           method: 'HEAD',
@@ -2976,15 +2977,14 @@ async function verifyRef(parsed) {
           result.notes.push('\u26a0 URL returns HTTP ' + resp.status);
         }
       } catch(e) {
-        // CORS block or network error \u2014 try no-cors as fallback (can only detect if server responds)
+        // CORS block or network error \u2014 try no-cors as fallback
         try {
-          const resp2 = await fetch(url, {
+          await fetch(url, {
             method: 'HEAD',
             mode: 'no-cors',
             signal: AbortSignal.timeout(6000)
           });
-          // Opaque response means server responded (but we can't read status)
-          result.notes.push('URL reachable (server responded, but details blocked by CORS)');
+          result.notes.push('\u2713 URL appears to be live');
         } catch(e2) {
           result.notes.push('\u26a0 URL could not be reached \u2014 may be broken or offline');
         }
