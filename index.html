@@ -874,6 +874,37 @@ function postSplitMerged(refs) {
       }
     }
 
+    // Method 2b: DOI/URL concatenated with next reference (no space)
+    // Catches copy-paste errors like "...CBO9780511802348Buyse, A." or "...report-2021.pdfSidor, M."
+    // Strategy: find all URLs/DOIs, check if text IMMEDIATELY after (no space) starts a new reference
+    const urlsInRef = [];
+    const urlFindRe = /https?:\/\/[^\s]+/g;
+    let uf;
+    while ((uf = urlFindRe.exec(ref)) !== null) {
+      urlsInRef.push({ start: uf.index, text: uf[0] });
+    }
+    for (const u of urlsInRef) {
+      // Try splitting the URL+trailing text at every uppercase letter boundary
+      // URL chars are typically: letters, digits, /, ., -, _, ~, %, :, #, ?, =, &
+      // When an author name like "Buyse," or "Court" appears, it breaks the URL pattern
+      // Heuristic: find where a sequence of URL-safe chars ends and a Name,Initial or Institution pattern begins
+      const fullText = ref.substring(u.start);
+      // Look for: (digits or URL-safe-chars)(UppercaseName, Initial) or (UppercaseWord space... (Year))
+      const splitPat = /([a-z0-9\/_\-.~%:#+?=&])([A-ZÀ-ɏ][a-zà-ɏ]{2,}(?:,\s*[A-ZÀ-ɏ]\.?[\s,]|\s+(?:of|for|the|and|v\.|d[ei])\s))/g;
+      let sp;
+      while ((sp = splitPat.exec(fullText)) !== null) {
+        const splitAt = u.start + sp.index + sp[1].length;
+        if (splitAt < 30 || splitAt >= ref.length - 20) continue;
+        if (positions.includes(splitAt)) continue;
+        const after = ref.substring(splitAt);
+        // Verify: does this look like a real reference start?
+        if (/\(?\d{4}/.test(after.substring(0, 150))) {
+          positions.push(splitAt);
+          break; // Only one split per URL
+        }
+      }
+    }
+
     // Method 3: Book-end pattern — "Publisher, Year." or just "Year." followed by new author
     // Catches: "MIT Press, 2007. Author, First..." or "Moscow: Nauka, 2003. Author..."
     const bookEndRe = /(?:,\s+|\.\s+|\()((?:19|20)\d{2})\)?\.\s+([A-Z\u00C0-\u024F])/g;
