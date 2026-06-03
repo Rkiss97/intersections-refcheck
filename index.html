@@ -792,9 +792,12 @@ function splitRefs(txt) {
 // "Belyantsev, Aleksei" or "Bogost, Ian." or "McGonigal, Jane"
 function looksLikeAuthorStart(text) {
   if (!text || text.length < 20) return false;
+  // Reject if first char is lowercase (including accented: \u00F6, \u00E1, \u00E9) \u2014 broken line fragments
+  const fc = text.trim().charAt(0);
+  if (fc && fc === fc.toLowerCase() && fc !== fc.toUpperCase()) return false;
   // Surname, Firstname/Initial: "Lastname, F" where F is capital
   // Supports hyphenated names (Levi-Strauss), McX names (McGonigal), and accented chars
-  if (/^[A-Z\u00C0-\u024F][a-zA-Z\u00C0-\u024F''\u2019\-]{1,},\s+[A-Z]/.test(text)) {
+  if (/^[A-Z\u00C0-\u00D6\u00D8-\u00DE][a-zA-Z\u00C0-\u024F''\u2019\-]{1,},\s+[A-Z\u00C0-\u00D6\u00D8-\u00DE]/.test(text) || (isUpperCase(fc) && /^.[a-zA-Z\u00C0-\u024F''\u2019\-]{1,},\s+[A-Z\u00C0-\u00D6\u00D8-\u00DE]/.test(text))) {
     // Reject common non-author words that happen to have commas after them
     if (/^(In|The|New|St|Association|Press|University|MIT|Oxford|Cambridge|Moscow|London|Paris|Berlin),/i.test(text)) return false;
     return true;
