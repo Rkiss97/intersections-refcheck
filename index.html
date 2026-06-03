@@ -513,8 +513,12 @@ const REQ_DELAY = 350; // ms between requests to be polite
 // Used so references like "van Leeuwen, T. (2008)..." or "de Graaf, J. (2019)..." are recognised
 // even though they start with a lowercase letter.
 const LOWERCASE_PARTICLES = 'van|von|de|di|la|le|der|den|des|du|da|do|del|della|dello|ter|ten|af|av|zu';
+// Helper: check if a character is uppercase (works for all Unicode Latin letters)
+function isUpperCase(ch) { return ch !== ch.toLowerCase() && ch === ch.toUpperCase(); }
 // Matches the start of a reference beginning with either a capital letter OR a lowercase particle + space + capital
-const REF_START_RE = new RegExp('^(?:[A-Z\\u00C0-\\u024F]|(?:' + LOWERCASE_PARTICLES + ')\\s+[A-Z\\u00C0-\\u024F])');
+// Use [A-ZÀ-ÖØ-Þ] for basic uppercase accented (À-Ö, Ø-Þ),
+// then runtime isUpperCase check for extended Latin (Ğ, Ą, Ć, Ő, etc.)
+const REF_START_RE = new RegExp('^(?:[A-Z\\u00C0-\\u00D6\\u00D8-\\u00DE]|(?:' + LOWERCASE_PARTICLES + ')\\s+[A-Z\\u00C0-\\u00D6\\u00D8-\\u00DE])');
 
 // OSCOLA citation style: "Surname Initials, ..." — e.g. "Becker GS," or "Pontell HN, Black WK and Geis G,"
 // Authors use surname followed by unpunctuated initials (unlike APA's "Becker, G.S.")
@@ -593,7 +597,12 @@ function looksLikeNewRef(chunk) {
   // — full references like "McCourt, D. M. (2011). Title. Journal, 37(4), 1705" have (Year) early
   if (/^\s*[A-Z][a-z]/.test(chunk) && /\d+\s*\(\d+\)\s*[,:]\s*\d/.test(chunk.substring(0, 80)) && !/\(\d{4}[a-z]?\)/.test(chunk.substring(0, 60))) return false;
   // Must start with a capital letter, or a lowercase particle + capital (e.g. "van Leeuwen")
-  if (!REF_START_RE.test(chunk)) return false;
+  // Reject if first char is lowercase — UNLESS it's a known particle (van, de, von, etc.)
+  // Catches broken line-wrap fragments like "öhlich" (from "Fröhlich") or "ári" (from "Vígvári")
+  const firstCh = chunk.trim().charAt(0);
+  const startsWithParticle = new RegExp('^(?:' + LOWERCASE_PARTICLES + ')\\s+[A-Z]').test(chunk.trim());
+  if (!startsWithParticle && firstCh && firstCh === firstCh.toLowerCase() && firstCh !== firstCh.toUpperCase()) return false;
+  if (!REF_START_RE.test(chunk) && !(firstCh && isUpperCase(firstCh))) return false;
   // Reject chunks starting with a single initial like "K.," or "B. " — continuation of author list
   // Real references start with multi-letter surnames (e.g. "Kovács,"), not lone initials
   if (/^[A-Z\u00C0-\u024F][.,]/.test(chunk)) return false;
@@ -752,7 +761,9 @@ function splitRefs(txt) {
         // "Cheriet, M. 2020. Title..." or "...Licence and... 1993. https://..." or "...2019. https://reyestr..."
         // Any 4-digit year (1800-2099) anywhere in the line is fine — combined with REF_START_RE
         // and prevEndsLikeRef, false positives are unlikely.
-        const isNewRef = !isDOIorURL && !isJournalMeta && prevEndsLikeRef && REF_START_RE.test(trimmed) && /\b(?:18|19|20)\d{2}\b/.test(l);
+        // Skip if previous line ends with ellipsis — APA truncated author list continuation
+        const prevEndsEllipsis = /(?:\.{3}|…)\s*$/.test(prevLine);
+        const isNewRef = !isDOIorURL && !isJournalMeta && !prevEndsEllipsis && prevEndsLikeRef && REF_START_RE.test(trimmed) && /\b(?:18|19|20)\d{2}\b/.test(l);
         // Numbered entries (e.g. "11. McDonald J.") are always new refs — no need for prevEndsLikeRef
         if (cur.length > 0 && (isNumbered || isNewRef)) {
           refs.push(cur.join(' ').trim());
@@ -850,6 +861,9 @@ function postSplitMerged(refs) {
         const splitAt = em.index + em[1].length;
         const textJustBefore = before.substring(Math.max(0, em.index - 5), em.index + em[1].length);
         if (/[&,]\s+[A-Z]\.\s+$/.test(textJustBefore)) continue;
+        // Skip if preceded by ellipsis — APA truncated author list: "..., Author, I. (Year)"
+        const textBefore10 = before.substring(Math.max(0, em.index - 10), em.index + 1);
+        if (/\.{3}\s*$/.test(textBefore10) || /…\s*$/.test(textBefore10)) continue;
         const candidateRef = ref.substring(splitAt);
         if (looksLikeNewRef(candidateRef) && splitAt > 30) {
           best = splitAt;
@@ -2483,6 +2497,26 @@ async function verifyRef(parsed) {
           result.notes.push('Note: DOI points to the whole book, not this specific chapter');
           result.notes.push('The chapter itself may have a separate DOI');
         } else if (tSim < 0.2) {
+          // Title similarity is very low — check if journal also differs
+          // If both title AND journal are completely different, the DOI likely points to a different paper
+          const refJournal = normalize(parsed.raw.match(/\.\s+([A-Z][A-Za-zÀ-ɏ:&\s]+),\s*\d/)?.[1] || '');
+          const foundJournal = normalize(doiRes.journal || '');
+          const journalMatch = refJournal && foundJournal && (refJournal.includes(foundJournal) || foundJournal.includes(refJournal) || calcJaccard(refJournal, foundJournal) > 0.5);
+          if (!journalMatch && doiRes.journal) {
+            // Both title and journal are completely different — wrong DOI
+            result.status = 'error';
+            result.notes.push('DOI points to a completely different paper');
+            result.notes.push('Reference title: ' + (parsed.title || '(could not parse)'));
+            result.notes.push('CrossRef title: ' + doiRes.title);
+            const cl = containerLabel(parsed, doiRes);
+            result.notes.push(cl.charAt(0).toUpperCase() + cl.slice(1) + ' in CrossRef: ' + doiRes.journal);
+            result.notes.push('The DOI may be incorrect — please verify');
+            const checks = [];
+            if (am === true) checks.push('first author match');
+            checks.push('year: ' + parsed.year + ' in ref / ' + doiRes.year + ' in CrossRef');
+            result.notes.push(checks.join(' / '));
+            return result;
+          }
           result.notes.push('Title in database may be in a different language');
         } else {
           result.notes.push('Title in CrossRef record differs from reference');
