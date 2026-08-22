@@ -838,8 +838,8 @@ function looksLikeNewEntry(text) {
     // Must have a year or "n.d." within first 300 chars
     if (/\b(19|20)\d{2}\b/.test(text.substring(0, 300))) return true;
     if (/\bn\.?\s?d\.?\b/i.test(text.substring(0, 300))) return true;
-    // Or has a URL (web source without year)
-    if (/https?:\/\//.test(text.substring(0, 500))) return true;
+    // Or has a non-DOI URL (web source without year) — DOI-only lines are likely publisher continuations
+    if (/https?:\/\//.test(text.substring(0, 500)) && !/^[^()\n]{5,80}\.\s*https?:\/\/doi\.org\/\S+\s*$/.test(text.trim())) return true;
   }
   return false;
 }
