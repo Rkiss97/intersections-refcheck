@@ -595,7 +595,7 @@ function looksLikeNewRef(chunk) {
   // Journal metadata lines (e.g. "Journal Name, 49(5), 605–628.") are continuations, not new refs
   // Only match if vol/issue pattern is early (first 80 chars) AND there's no (Year) near the start
   // — full references like "McCourt, D. M. (2011). Title. Journal, 37(4), 1705" have (Year) early
-  if (/^\s*[A-Z][a-z]/.test(chunk) && /\d+\s*\(\d+\)\s*[,:]\s*\d/.test(chunk.substring(0, 80)) && !/\(\d{4}[a-z]?\)/.test(chunk.substring(0, 60))) return false;
+  if (/^\s*[A-Z][a-z]/.test(chunk) && /\d+\s*\(\d+\)\s*[,:]\s*\d/.test(chunk.substring(0, 80)) && !/\((?:1[5-9]|20)\d{2}[a-z]?\)/.test(chunk.substring(0, 60))) return false;
   // Must start with a capital letter, or a lowercase particle + capital (e.g. "van Leeuwen")
   // Reject if first char is lowercase — UNLESS it's a known particle (van, de, von, etc.)
   // Catches broken line-wrap fragments like "öhlich" (from "Fröhlich") or "ári" (from "Vígvári")
@@ -612,7 +612,7 @@ function looksLikeNewRef(chunk) {
   // because "ç" is not a \w char and a boundary exists between "A" and "ç".
   if (/^(In|The|A|An|And|But|Or|For|With|From|This|That|These|Those|Trans|Press|pp)(?![A-Za-z\u00C0-\u024F])/i.test(chunk)) return false;
   // Find the first (Year) in the chunk — either (2001) or . 2001 or similar
-  const yearMatch = chunk.match(/[\(\.]\s*\d{4}[a-z]?\)?/);
+  const yearMatch = chunk.match(/[\(\.]\s*(?:1[5-9]|20)\d{2}[a-z]?\)?/);
   if (!yearMatch) return false;
   // The text before the year — should be author names, not sentences
   const textBeforeYear = chunk.substring(0, yearMatch.index).trim();
@@ -637,7 +637,7 @@ function looksLikeNewRef(chunk) {
   // Organizational authors are short (<50 chars). If textBeforeYear is long
   // and has no comma near the start, it's probably a publisher/title, not an author
   const hasAuthorComma = /^[^,]{1,30},/.test(textBeforeYear);
-  if (!hasAuthorComma && textBeforeYear.length > 50) return false;
+  if (!hasAuthorComma && textBeforeYear.length > 90) return false;
   return true;
 }
 
@@ -756,7 +756,7 @@ function splitRefs(txt) {
         const isDOIorURL = /^\s*(?:DOI\s*:|https?:\/\/|doi[:.]\s*10\.)/i.test(trimmed) || /^\s*10\.\d{4,}\//.test(trimmed);
         // Journal metadata continuation: "Journal Name, Vol(Issue), Pages. DOI" — not a new reference
         // Only if vol/issue is early AND no (Year) near start — otherwise it's a full reference
-        const isJournalMeta = /^\s*[A-Z][a-z]/.test(trimmed) && /\d+\s*\(\d+\)\s*[,:]\s*\d/.test(trimmed.substring(0, 80)) && !/\(\d{4}[a-z]?\)/.test(trimmed.substring(0, 60));
+        const isJournalMeta = /^\s*[A-Z][a-z]/.test(trimmed) && /\d+\s*\(\d+\)\s*[,:]\s*\d/.test(trimmed.substring(0, 80)) && !/\((?:1[5-9]|20)\d{2}[a-z]?\)/.test(trimmed.substring(0, 60));
         // Year detection: accept APA "(2020)" / ", 2020" AND plain-year styles like
         // "Cheriet, M. 2020. Title..." or "...Licence and... 1993. https://..." or "...2019. https://reyestr..."
         // Any 4-digit year (1800-2099) anywhere in the line is fine — combined with REF_START_RE
