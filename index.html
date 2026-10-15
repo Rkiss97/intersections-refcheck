@@ -2481,7 +2481,7 @@ async function verifyRef(parsed) {
         result.notes.push(checks.join(' / '));
         return result;
       } else if (tSim >= 0.5 && !yearClose) {
-        result.status = 'warn';
+        result.status = 'error';
         result.notes.push('DOI verified but year differs significantly');
         result.notes.push('Year: reference says ' + parsed.year + ', CrossRef says ' + doiRes.year);
         if (doiRes.journal) { const cl = containerLabel(parsed, doiRes); result.notes.push(cl.charAt(0).toUpperCase() + cl.slice(1) + ': ' + doiRes.journal); }
@@ -2936,15 +2936,17 @@ async function verifyRef(parsed) {
         result.found = null;
       }
       if (best) {
-        result.status = 'warn';
         // When author and year match but title is low, likely a shortened/abbreviated title in reference
         if (tSim < 0.65 && am === true && yearOk) {
+          result.status = 'warn';
           result.notes.push('Possible match found via ' + sourceLabel(best.source) + ' \u2014 reference may use shortened title');
           result.notes.push('Title similarity: ' + Math.round(tSim * 100) + '%');
           if (parsed.title) result.notes.push('Reference title: "' + parsed.title + '"');
           if (best.title) result.notes.push('Database title: "' + best.title + '"');
           result.notes.push('First author and year match \u2014 likely the same work');
         } else {
+          // Any confirmed discrepancy (wrong author, wrong year, low title match) \u2192 error
+          result.status = 'error';
           result.notes.push('Similar record found via ' + sourceLabel(best.source) + ' but with discrepancies');
           if (tSim < 0.65) {
             result.notes.push('Title similarity: ' + Math.round(tSim * 100) + '% \u2014 may be different work');
@@ -2962,10 +2964,7 @@ async function verifyRef(parsed) {
           else if (editionYears.length > 1) yearNote += ' (known editions: ' + editionYears.slice(0, 6).join(', ') + ')';
           result.notes.push(yearNote);
         }
-        if (am === false) {
-          result.notes.push('First author does not match');
-          result.status = 'error';
-        }
+        if (am === false) result.notes.push('First author does not match');
         result.notes.push('Manual verification recommended');
       }
     }
