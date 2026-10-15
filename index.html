@@ -2962,7 +2962,10 @@ async function verifyRef(parsed) {
           else if (editionYears.length > 1) yearNote += ' (known editions: ' + editionYears.slice(0, 6).join(', ') + ')';
           result.notes.push(yearNote);
         }
-        if (am === false) result.notes.push('First author does not match');
+        if (am === false) {
+          result.notes.push('First author does not match');
+          result.status = 'error';
+        }
         result.notes.push('Manual verification recommended');
       }
     }
