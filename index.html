@@ -384,7 +384,7 @@ textarea.ri::placeholder{color:var(--brown-light);font-family:'Inter',sans-serif
     <div class="title">Reference Checker</div>
   </div>
   <div class="header-right">
-    <div class="info">Verifies references against CrossRef, OpenAlex, Semantic Scholar, Open Library, Google Books and arXiv.</div>
+    <div class="info">Verifies references against CrossRef, OpenAlex, Semantic Scholar, MTMT, Open Library, Google Books and arXiv.</div>
   </div>
 </div>
 
@@ -2093,6 +2093,50 @@ async function searchOpenAlex(title) {
   } catch(e) { return []; }
 }
 
+async function searchMTMT(title, year) {
+  try {
+    if (!title || title.length < 10) return [];
+    const params = new URLSearchParams();
+    params.append('cond', 'title;any;' + title.substring(0, 150));
+    if (year) {
+      const y = parseInt(year);
+      if (y > 1900) params.append('cond', 'publishedYear;range;' + (y - 1) + ',' + (y + 1));
+    }
+    params.append('format', 'json');
+    params.append('size', '5');
+    const url = 'https://m2.mtmt.hu/api/publication?' + params;
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d.content || []).map(p => {
+      // Build authors from authorships array — use author.familyName, author.givenName when available
+      let authors = '';
+      if (p.authorships && p.authorships.length > 0) {
+        authors = p.authorships.map(a => {
+          if (a.author && a.author.familyName) return a.author.familyName + ', ' + (a.author.givenName || '');
+          return a.label || '';
+        }).join('; ');
+      } else if (p.firstAuthor) {
+        authors = p.firstAuthor;
+      }
+      // Extract DOI from identifiers array
+      let doi = '';
+      if (p.identifiers) {
+        const doiId = p.identifiers.find(id => id.source && id.source.name === 'DOI');
+        if (doiId) doi = doiId.idValue || '';
+      }
+      return {
+        title: p.title || '',
+        authors: authors,
+        year: p.publishedYear ? String(p.publishedYear) : '',
+        journal: '',  // MTMT API doesn't include journal name in basic response
+        doi: doi,
+        source: 'mtmt'
+      };
+    });
+  } catch(e) { return []; }
+}
+
 async function searchSemanticScholar(title) {
   try {
     const url = `${S2_API}/paper/search?query=${encodeURIComponent(title.substring(0, 150))}&limit=5&fields=title,authors,year,venue,externalIds`;
@@ -2661,17 +2705,18 @@ async function verifyRef(parsed) {
     .replace(/[\u2013\u2014]/g, '-')  // en-dash/em-dash → hyphen for API queries
     .trim();
 
-  // Step 2: Search CrossRef (bibliographic + title) + OpenAlex in parallel
+  // Step 2: Search CrossRef (bibliographic + title) + OpenAlex + MTMT in parallel
   // Using both query.bibliographic (full ref text) and query.title (clean title only)
   // because noisy reference text can cause query.bibliographic to miss well-known papers
-  const [crResults, crTitleResults, oaResults] = await Promise.all([
+  const [crResults, crTitleResults, oaResults, mtmtResults] = await Promise.all([
     searchCrossRef(parsed.searchQuery, parsed.year),
     cleanTitle && cleanTitle.length >= 15 ? searchCrossRefByTitle(cleanTitle, parsed.year) : Promise.resolve([]),
-    cleanTitle ? searchOpenAlex(cleanTitle) : Promise.resolve([])
+    cleanTitle ? searchOpenAlex(cleanTitle) : Promise.resolve([]),
+    cleanTitle ? searchMTMT(cleanTitle, parsed.year) : Promise.resolve([])
   ]);
   await delay(REQ_DELAY);
 
-  let allCandidates = [...crResults, ...crTitleResults, ...oaResults];
+  let allCandidates = [...crResults, ...crTitleResults, ...oaResults, ...mtmtResults];
   let best = findBestMatch(parsed, allCandidates);
 
   // Step 3: If not found OR only poor match, try Semantic Scholar
@@ -2713,14 +2758,15 @@ async function verifyRef(parsed) {
     const surname = normalize(parsed.authors).split(/[,;&]/)[0].trim().split(/\s+/).filter(w => w.length > 2)[0];
     if (surname) {
       const authorQuery = surname + ' ' + (cleanTitle || parsed.title);
-      const [crRetry, oaRetry, olRetry, gbRetry] = await Promise.all([
+      const [crRetry, oaRetry, olRetry, gbRetry, mtRetry] = await Promise.all([
         searchCrossRef(authorQuery, parsed.year),
         searchOpenAlex(authorQuery),
         searchOpenLibrary(cleanTitle || parsed.title, parsed.authors),
-        searchGoogleBooks(cleanTitle || parsed.title, parsed.authors)
+        searchGoogleBooks(cleanTitle || parsed.title, parsed.authors),
+        searchMTMT(cleanTitle || parsed.title, parsed.year)
       ]);
       await delay(REQ_DELAY);
-      const retryCandidates = [...(crRetry || []), ...(oaRetry || []), ...(olRetry || []), ...(gbRetry || [])];
+      const retryCandidates = [...(crRetry || []), ...(oaRetry || []), ...(olRetry || []), ...(gbRetry || []), ...(mtRetry || [])];
       const retryBest = findBestMatch(parsed, retryCandidates);
       if (retryBest && retryBest._authorMatch !== false && retryBest._titleSim >= 0.5) {
         best = retryBest; // Found the correct version with matching author
@@ -3018,11 +3064,11 @@ async function verifyRef(parsed) {
   } else if (looksLikeScholarlyRef(parsed.raw)) {
     // Looks like a journal article or book but not found anywhere \u2014 suspicious
     result.status = 'suspicious';
-    result.notes.push('No matching record found in any database (CrossRef, OpenAlex, Semantic Scholar, Open Library, Google Books, arXiv)');
+    result.notes.push('No matching record found in any database (CrossRef, OpenAlex, Semantic Scholar, MTMT, Open Library, Google Books, arXiv)');
     result.notes.push('\u26a0 Reference appears to be a journal article or book but could not be verified \u2014 may be fabricated or contain significant errors');
   } else {
     result.status = 'warn';
-    result.notes.push('No matching record found in any database (CrossRef, OpenAlex, Semantic Scholar, Open Library, Google Books, arXiv)');
+    result.notes.push('No matching record found in any database (CrossRef, OpenAlex, Semantic Scholar, MTMT, Open Library, Google Books, arXiv)');
     result.notes.push('This appears to be a report, website, or other non-indexed source \u2014 manual verification recommended');
   }
 
@@ -3073,7 +3119,8 @@ function sourceLabel(src) {
     'semantic-scholar': 'Semantic Scholar',
     'open-library': 'Open Library',
     'google-books': 'Google Books',
-    'arxiv': 'arXiv'
+    'arxiv': 'arXiv',
+    'mtmt': 'MTMT'
   };
   return labels[src] || src;
 }
