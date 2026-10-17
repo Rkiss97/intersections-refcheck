@@ -1393,7 +1393,10 @@ function parseRef(ref) {
     }
   }
   // APA/Harvard fallback: title after year
-  if (!r.title && yearM) {
+  // Skip if "pp." + digits appear BEFORE the year — that's MTMT format (pages before year),
+  // not APA (title after year). The MTMT fallback below will handle it.
+  const _beforeYearText = yearM ? ref.substring(0, ref.indexOf(yearM[0])) : '';
+  if (!r.title && yearM && !/\bpp\.\s*\d/.test(_beforeYearText)) {
     let idx = ref.indexOf(yearM[0]) + yearM[0].length;
     // Skip past APA date components like "(2022, February 10)." or "(2023a)."
     // Only match SHORT date closings (max 30 chars) to avoid skipping past (edsair...) or (SSRN...) parens
