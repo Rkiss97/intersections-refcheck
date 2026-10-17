@@ -1479,6 +1479,46 @@ function parseRef(ref) {
     }
   }
 
+  // MTMT fallback 2: use "pp." as title-end boundary
+  //   Multi-author: "Surname, Given ; Surname, Given Title pp. Pages (Year) Publisher"
+  //   Single-author: "Surname, Given Title pp. Pages (Year) Publisher"
+  if (!r.title && r.year) {
+    const ppMatch = ref.match(/\bpp\.\s*\d/);
+    if (ppMatch && ppMatch.index > 20) {
+      const beforePp = ref.substring(0, ppMatch.index).trim();
+      if (/\s;\s/.test(beforePp)) {
+        // Multi-author with " ; " separator
+        const lastSemiIdx = beforePp.lastIndexOf(' ; ');
+        if (lastSemiIdx > 0) {
+          const afterLastSemi = beforePp.substring(lastSemiIdx + 3);
+          const lastAuthM = afterLastSemi.match(
+            /^([A-ZÀ-ɏ][A-Za-zÀ-ɏ]+,\s+[A-ZÀ-ɏ][a-zÀ-ɏ]+)\s+/
+          );
+          if (lastAuthM) {
+            const titleCandidate = afterLastSemi.substring(lastAuthM[0].length).trim();
+            if (titleCandidate.length >= 10) {
+              r.title = titleCandidate;
+              r.authors = beforePp.substring(0, lastSemiIdx + 3 + lastAuthM[0].length).trim()
+                .replace(/\s*;\s*$/, '');
+            }
+          }
+        }
+      } else {
+        // Single author without ALL-CAPS journal
+        const authEndM = beforePp.match(
+          /^([A-ZÀ-ɏ][A-Za-zÀ-ɏ]+,\s+[A-ZÀ-ɏ][a-zÀ-ɏ]+(?:\s+[A-ZÀ-ɏ]\.)?)\s+/
+        );
+        if (authEndM) {
+          const titleCandidate = beforePp.substring(authEndM[0].length).trim();
+          if (titleCandidate.length >= 10) {
+            r.title = titleCandidate;
+            r.authors = authEndM[1].trim();
+          }
+        }
+      }
+    }
+  }
+
   // Post-process title: strip trailing parenthetical identifiers
   // e.g. "(SSRN Scholarly Paper No. 4106905)" or "(Working Paper No. 123)" or "(Report No. 45)"
   if (r.title) {
