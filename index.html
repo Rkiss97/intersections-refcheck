@@ -1455,6 +1455,30 @@ function parseRef(ref) {
     }
   }
 
+  // MTMT / Hungarian academic style fallback:
+  //   "Surname, Given Title text here ALL_CAPS_JOURNAL Vol : Issue pp. Pages (Year)"
+  // The title sits between the author name and an ALL-CAPS journal/series name.
+  // Detect 2+ consecutive ALL-CAPS words (each 2+ letters) as the journal boundary.
+  if (!r.title && r.year) {
+    const allCapsJournalRe = /\b([A-Z]{2,}(?:\s+[A-Z]{2,}){1,})\s/;
+    const capM = ref.match(allCapsJournalRe);
+    if (capM && capM.index > 15) {
+      const beforeJournal = ref.substring(0, capM.index).trim();
+      // Split: "Surname, Given TitleText..." — author = up to "Surname, Given(s)"
+      // Require period after single-letter initial to avoid capturing Hungarian article "A"/"Az"
+      const authEndM = beforeJournal.match(
+        /^([A-ZÀ-ɏ][A-Za-zÀ-ɏ]+,\s+[A-ZÀ-ɏ][a-zÀ-ɏ]+(?:\s+[A-ZÀ-ɏ]\.)?)\s+/
+      );
+      if (authEndM) {
+        const titleCandidate = beforeJournal.substring(authEndM[0].length).trim();
+        if (titleCandidate.length >= 10) {
+          r.title = titleCandidate;
+          r.authors = authEndM[1].trim();
+        }
+      }
+    }
+  }
+
   // Post-process title: strip trailing parenthetical identifiers
   // e.g. "(SSRN Scholarly Paper No. 4106905)" or "(Working Paper No. 123)" or "(Report No. 45)"
   if (r.title) {
